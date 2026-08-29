@@ -1,0 +1,8 @@
+export type SyncStatus = 'rascunho' | 'pendente' | 'sincronizando' | 'sincronizado' | 'erro' | 'conflito'
+export type TipoEntidade = 'ocorrencia' | 'abordagem' | 'meliante' | 'vinculo' | 'foto'
+export type Operacao = 'create' | 'update' | 'delete' | 'upload'
+export type PapelUsuario = 'agente' | 'supervisor' | 'administrador'
+export type TipoOcorrencia = 'furto' | 'roubo' | 'vandalismo' | 'flagrante' | 'suspeito' | 'outros'
+export type StatusOcorrencia = 'aberta' | 'em_andamento' | 'encerrada' | 'arquivada'
+export type TipoAbordagem = 'abordagem' | 'flagrante'
+export type ResultadoAbordagem = 'liberado' | 'detido' | 'encaminhado_dp' | 'apreensao_objetos' | 'outros'
