@@ -11,6 +11,54 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ---------------------------------------------------------------
+        // Shadcn/UI — tokens (base color: Slate, CSS variables)
+        // Consumidos pelos componentes de components/ui.
+        // ---------------------------------------------------------------
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        chart: {
+          '1': 'hsl(var(--chart-1))',
+          '2': 'hsl(var(--chart-2))',
+          '3': 'hsl(var(--chart-3))',
+          '4': 'hsl(var(--chart-4))',
+          '5': 'hsl(var(--chart-5))',
+        },
+
+        // ---------------------------------------------------------------
+        // Design system SIGOP
+        // ---------------------------------------------------------------
         // Sidebar (sempre escura)
         sidebar: {
           DEFAULT:  '#0a0f1e',
@@ -55,6 +103,21 @@ const config: Config = {
           'flagrante-bg':    '#fff1f2',
           'flagrante-text':  '#b91c1c',
         },
+        // Status de sincronização (offline-first)
+        sync: {
+          'rascunho-bg':      '#f9fafb',
+          'rascunho-text':    '#6b7280',
+          'pendente-bg':      '#fff7ed',
+          'pendente-text':    '#c2410c',
+          'sincronizando-bg': '#eff6ff',
+          'sincronizando-text': '#1d4ed8',
+          'sincronizado-bg':  '#f0fdf4',
+          'sincronizado-text': '#15803d',
+          'erro-bg':          '#fff1f2',
+          'erro-text':        '#b91c1c',
+          'conflito-bg':      '#fefce8',
+          'conflito-text':    '#a16207',
+        },
         // KPI card icons
         kpi: {
           'pending-bg':   '#fff7ed',
@@ -85,6 +148,11 @@ const config: Config = {
         'nav-section': ['10px', { lineHeight: '1', letterSpacing: '0.12em', fontWeight: '600' }],
       },
       borderRadius: {
+        // Shadcn/UI
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+        // SIGOP
         card:   '12px',
         input:  '8px',
         badge:  '999px',
@@ -101,9 +169,21 @@ const config: Config = {
       height: {
         topbar: '56px',
       },
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+      },
       animation: {
         'pulse-dot': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spin-slow': 'spin 2s linear infinite',
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },
