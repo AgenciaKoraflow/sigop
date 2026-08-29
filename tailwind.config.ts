@@ -13,7 +13,7 @@ const config: Config = {
       colors: {
         // ---------------------------------------------------------------
         // Shadcn/UI — tokens (base color: Slate, CSS variables)
-        // Consumidos pelos componentes de components/ui.
+        // Consumed by the components in components/ui.
         // ---------------------------------------------------------------
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -57,9 +57,9 @@ const config: Config = {
         },
 
         // ---------------------------------------------------------------
-        // Design system SIGOP
+        // SIGOP design system
         // ---------------------------------------------------------------
-        // Sidebar (sempre escura)
+        // Sidebar (always dark)
         sidebar: {
           DEFAULT:  '#0a0f1e',
           mid:      '#0d1526',
@@ -70,53 +70,53 @@ const config: Config = {
           muted:    '#8892a4',
           icon:     '#6b7fa8',
         },
-        // Cor de ação principal — azul royal
+        // Primary action color — royal blue
         brand: {
           DEFAULT:  '#3b5fc0',
           hover:    '#2d4fa8',
           light:    '#eff6ff',
           ring:     'rgba(59,95,192,0.15)',
         },
-        // Área de conteúdo
+        // Content area
         content: {
           bg:       '#f4f5f7',
           surface:  '#ffffff',
           border:   '#e5e7eb',
           divider:  '#f0f1f3',
         },
-        // Texto
+        // Text
         ink: {
           DEFAULT:  '#0f172a',
           secondary:'#6b7280',
           muted:    '#9ca3af',
         },
-        // Status operacional
+        // Operational status
         status: {
-          'aberta-bg':       '#eff6ff',
-          'aberta-text':     '#1d4ed8',
-          'andamento-bg':    '#fff7ed',
-          'andamento-text':  '#c2410c',
-          'encerrada-bg':    '#f0fdf4',
-          'encerrada-text':  '#15803d',
-          'arquivada-bg':    '#f9fafb',
-          'arquivada-text':  '#6b7280',
-          'flagrante-bg':    '#fff1f2',
-          'flagrante-text':  '#b91c1c',
+          'open-bg':            '#eff6ff',
+          'open-text':          '#1d4ed8',
+          'in-progress-bg':     '#fff7ed',
+          'in-progress-text':   '#c2410c',
+          'closed-bg':          '#f0fdf4',
+          'closed-text':        '#15803d',
+          'archived-bg':        '#f9fafb',
+          'archived-text':      '#6b7280',
+          'in-flagrante-bg':    '#fff1f2',
+          'in-flagrante-text':  '#b91c1c',
         },
-        // Status de sincronização (offline-first)
+        // Sync status (offline-first)
         sync: {
-          'rascunho-bg':      '#f9fafb',
-          'rascunho-text':    '#6b7280',
-          'pendente-bg':      '#fff7ed',
-          'pendente-text':    '#c2410c',
-          'sincronizando-bg': '#eff6ff',
-          'sincronizando-text': '#1d4ed8',
-          'sincronizado-bg':  '#f0fdf4',
-          'sincronizado-text': '#15803d',
-          'erro-bg':          '#fff1f2',
-          'erro-text':        '#b91c1c',
-          'conflito-bg':      '#fefce8',
-          'conflito-text':    '#a16207',
+          'draft-bg':      '#f9fafb',
+          'draft-text':    '#6b7280',
+          'pending-bg':    '#fff7ed',
+          'pending-text':  '#c2410c',
+          'syncing-bg':    '#eff6ff',
+          'syncing-text':  '#1d4ed8',
+          'synced-bg':     '#f0fdf4',
+          'synced-text':   '#15803d',
+          'error-bg':      '#fff1f2',
+          'error-text':    '#b91c1c',
+          'conflict-bg':   '#fefce8',
+          'conflict-text': '#a16207',
         },
         // KPI card icons
         kpi: {
@@ -133,7 +133,7 @@ const config: Config = {
           'sla-bg':       '#f0fdf4',
           'sla-icon':     '#22c55e',
         },
-        // Semânticos globais
+        // Global semantic colors
         success:  '#16a34a',
         warning:  '#d97706',
         danger:   '#dc2626',

@@ -18,11 +18,11 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        // --- Design system SIGOP -------------------------------------
-        // Ação principal — azul royal da marca
+        // --- SIGOP design system ------------------------------------
+        // Primary action — brand royal blue
         primary:
           "bg-brand text-white hover:bg-brand-hover focus-visible:ring-brand",
-        // Botão dentro da sidebar escura
+        // Button inside the dark sidebar
         sidebar:
           "bg-transparent text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text focus-visible:ring-sidebar-border focus-visible:ring-offset-sidebar",
       },

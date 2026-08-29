@@ -1,5 +1,5 @@
-// Barrel de componentes Shadcn/UI do SIGOP.
-// Facilita imports: `import { Button, Badge, Dialog } from "@/components/ui"`
+// Barrel file for SIGOP's Shadcn/UI components.
+// Simplifies imports: `import { Button, Badge, Dialog } from "@/components/ui"`
 
 export * from "./alert"
 export * from "./avatar"
@@ -30,5 +30,5 @@ export * from "./toast"
 export * from "./toaster"
 export * from "./tooltip"
 
-// Hook do sistema de toast (vive em hooks/, re-exportado aqui por conveniência)
+// Toast system hook (lives in hooks/, re-exported here for convenience)
 export { useToast, toast } from "@/hooks/use-toast"

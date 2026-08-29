@@ -6,8 +6,8 @@
 
 /* ------------------------------------------------------------------ */
 /* Shadcn/UI — tokens (base color: Slate)                              */
-/* Usados pelos componentes de components/ui. O design system SIGOP    */
-/* (brand, sidebar, status, kpi…) fica no tailwind.config.ts.          */
+/* Used by the components in components/ui. The SIGOP design system    */
+/* (brand, sidebar, status, kpi…) lives in tailwind.config.ts.         */
 /* ------------------------------------------------------------------ */
 @layer base {
   :root {
@@ -71,15 +71,15 @@
   body {
     @apply bg-content-bg text-ink font-sans antialiased;
   }
-  /* Scrollbar personalizada */
+  /* Custom scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { @apply bg-transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-content-border rounded-badge; }
 }
 
 @layer components {
-  /* KPI label uppercase */
+  /* Uppercase KPI label */
   .kpi-label { @apply text-kpi-label uppercase tracking-widest text-ink-secondary; }
-  /* Número de registro em mono */
+  /* Record number in mono */
   .reg-number { @apply font-mono text-sm font-medium text-ink; }
 }

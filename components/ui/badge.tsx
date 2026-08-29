@@ -16,31 +16,31 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
 
-        // --- SIGOP · status operacional da ocorrência ----------------
-        aberta:
-          "border-transparent bg-status-aberta-bg text-status-aberta-text",
-        em_andamento:
-          "border-transparent bg-status-andamento-bg text-status-andamento-text",
-        encerrada:
-          "border-transparent bg-status-encerrada-bg text-status-encerrada-text",
-        arquivada:
-          "border-transparent bg-status-arquivada-bg text-status-arquivada-text",
-        flagrante:
-          "border-transparent bg-status-flagrante-bg text-status-flagrante-text",
+        // --- SIGOP · incident operational status ---------------------
+        open:
+          "border-transparent bg-status-open-bg text-status-open-text",
+        in_progress:
+          "border-transparent bg-status-in-progress-bg text-status-in-progress-text",
+        closed:
+          "border-transparent bg-status-closed-bg text-status-closed-text",
+        archived:
+          "border-transparent bg-status-archived-bg text-status-archived-text",
+        in_flagrante:
+          "border-transparent bg-status-in-flagrante-bg text-status-in-flagrante-text",
 
-        // --- SIGOP · status de sincronização (offline-first) ---------
-        rascunho:
-          "border-transparent bg-sync-rascunho-bg text-sync-rascunho-text",
-        pendente:
-          "border-transparent bg-sync-pendente-bg text-sync-pendente-text",
-        sincronizando:
-          "border-transparent bg-sync-sincronizando-bg text-sync-sincronizando-text",
-        sincronizado:
-          "border-transparent bg-sync-sincronizado-bg text-sync-sincronizado-text",
-        erro:
-          "border-transparent bg-sync-erro-bg text-sync-erro-text",
-        conflito:
-          "border-transparent bg-sync-conflito-bg text-sync-conflito-text",
+        // --- SIGOP · sync status (offline-first) ---------------------
+        draft:
+          "border-transparent bg-sync-draft-bg text-sync-draft-text",
+        pending:
+          "border-transparent bg-sync-pending-bg text-sync-pending-text",
+        syncing:
+          "border-transparent bg-sync-syncing-bg text-sync-syncing-text",
+        synced:
+          "border-transparent bg-sync-synced-bg text-sync-synced-text",
+        error:
+          "border-transparent bg-sync-error-bg text-sync-error-text",
+        conflict:
+          "border-transparent bg-sync-conflict-bg text-sync-conflict-text",
       },
     },
     defaultVariants: {

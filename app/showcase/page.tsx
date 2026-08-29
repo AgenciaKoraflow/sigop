@@ -33,14 +33,14 @@ export default function ShowcasePage() {
         <header className="space-y-1">
           <h1 className="text-2xl font-bold text-ink">SIGOP · Design System</h1>
           <p className="text-sm text-ink-secondary">
-            Componentes Shadcn/UI + variantes do SIGOP. Rota de teste — pode apagar depois.
+            Shadcn/UI components + SIGOP variants. Test route — safe to delete later.
           </p>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Botões</CardTitle>
-            <CardDescription>Variantes do Shadcn + <code>primary</code> e <code>sidebar</code></CardDescription>
+            <CardTitle className="text-base">Buttons</CardTitle>
+            <CardDescription>Shadcn variants + <code>primary</code> and <code>sidebar</code></CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3">
             <Button variant="primary">Primary (brand)</Button>
@@ -52,68 +52,68 @@ export default function ShowcasePage() {
             <Button variant="link">Link</Button>
             <div className="flex w-full gap-3 rounded-icon bg-sidebar p-3">
               <Button variant="sidebar">Sidebar item</Button>
-              <Button variant="sidebar">Outra ação</Button>
+              <Button variant="sidebar">Another action</Button>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Badges — status operacional</CardTitle>
+            <CardTitle className="text-base">Badges — operational status</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Badge variant="aberta">Aberta</Badge>
-            <Badge variant="em_andamento">Em andamento</Badge>
-            <Badge variant="encerrada">Encerrada</Badge>
-            <Badge variant="arquivada">Arquivada</Badge>
-            <Badge variant="flagrante">Flagrante</Badge>
+            <Badge variant="open">Open</Badge>
+            <Badge variant="in_progress">In progress</Badge>
+            <Badge variant="closed">Closed</Badge>
+            <Badge variant="archived">Archived</Badge>
+            <Badge variant="in_flagrante">In flagrante</Badge>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Badges — sincronização</CardTitle>
+            <CardTitle className="text-base">Badges — sync status</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Badge variant="rascunho">Rascunho</Badge>
-            <Badge variant="pendente">Pendente</Badge>
-            <Badge variant="sincronizando">Sincronizando</Badge>
-            <Badge variant="sincronizado">Sincronizado</Badge>
-            <Badge variant="erro">Erro</Badge>
-            <Badge variant="conflito">Conflito</Badge>
+            <Badge variant="draft">Draft</Badge>
+            <Badge variant="pending">Pending</Badge>
+            <Badge variant="syncing">Syncing</Badge>
+            <Badge variant="synced">Synced</Badge>
+            <Badge variant="error">Error</Badge>
+            <Badge variant="conflict">Conflict</Badge>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Formulário, Tabs, Dialog e Toast</CardTitle>
+            <CardTitle className="text-base">Form, Tabs, Dialog and Toast</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="form">
               <TabsList>
-                <TabsTrigger value="form">Formulário</TabsTrigger>
-                <TabsTrigger value="acoes">Ações</TabsTrigger>
+                <TabsTrigger value="form">Form</TabsTrigger>
+                <TabsTrigger value="actions">Actions</TabsTrigger>
               </TabsList>
               <TabsContent value="form" className="space-y-3 pt-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="reg">Nº de registro</Label>
-                  <Input id="reg" placeholder="2026-000123" />
+                  <Label htmlFor="record-number">Record number</Label>
+                  <Input id="record-number" placeholder="2026-000123" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="resp">Responsável</Label>
-                  <Input id="resp" placeholder="Nome do agente" />
+                  <Label htmlFor="assignee">Assignee</Label>
+                  <Input id="assignee" placeholder="Agent name" />
                 </div>
               </TabsContent>
-              <TabsContent value="acoes" className="flex flex-wrap gap-3 pt-4">
+              <TabsContent value="actions" className="flex flex-wrap gap-3 pt-4">
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button variant="primary">Abrir dialog</Button>
+                    <Button variant="primary">Open dialog</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Encerrar ocorrência</DialogTitle>
+                      <DialogTitle>Close incident</DialogTitle>
                       <DialogDescription>
-                        Confirma o encerramento? Essa ação pode ser revertida por um supervisor.
+                        Confirm closing this incident? A supervisor can revert this action.
                       </DialogDescription>
                     </DialogHeader>
                   </DialogContent>
@@ -122,12 +122,12 @@ export default function ShowcasePage() {
                   variant="outline"
                   onClick={() =>
                     toast({
-                      title: "Sincronizado",
-                      description: "3 ocorrências enviadas ao servidor.",
+                      title: "Synced",
+                      description: "3 incidents sent to the server.",
                     })
                   }
                 >
-                  Disparar toast
+                  Trigger toast
                 </Button>
               </TabsContent>
             </Tabs>
