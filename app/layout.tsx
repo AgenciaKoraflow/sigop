@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -16,6 +16,19 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "SIGOP",
   description: "Operational incident management system",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "SIGOP",
+    statusBarStyle: "default",
+  },
+  icons: {
+    apple: "/icons/icon-192x192.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#3b5fc0",
 };
 
 export default function RootLayout({
