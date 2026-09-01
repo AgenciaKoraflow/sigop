@@ -214,6 +214,11 @@ export async function listRecentCache(type?: 'incident' | 'stop') {
   return db.getAll('recent_records_cache')
 }
 
+export async function clearRecentCache() {
+  const db = await getDB()
+  await db.clear('recent_records_cache')
+}
+
 // =============================================
 // Offline settings
 // =============================================
