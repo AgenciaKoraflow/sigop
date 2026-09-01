@@ -8,7 +8,8 @@ import { useOnlineStatus } from '@/hooks/use-online-status'
 const records = (n: number) => (n === 1 ? 'registro' : 'registros')
 
 /**
- * Fixed 36px status bar for the authenticated layout.
+ * 36px status bar that sits directly below the topbar in the authenticated
+ * layout (sticky, so it stays visible while the content scrolls).
  *
  * Hidden entirely while online with an empty queue; otherwise it reflects the
  * connection / sync state and offers a manual "Sincronizar agora" action.
@@ -33,15 +34,15 @@ export function SyncIndicator() {
   let message: React.ReactNode
 
   if (status === 'offline') {
-    tone = 'bg-amber-900/20 text-amber-400'
+    tone = 'bg-sync-pending-bg text-sync-pending-text'
     icon = <WifiOff className="h-4 w-4 animate-pulse" />
     message = 'Sem internet — seus dados serão sincronizados quando a conexão voltar'
   } else if (status === 'syncing') {
-    tone = 'bg-blue-900/20 text-blue-400'
+    tone = 'bg-sync-syncing-bg text-sync-syncing-text'
     icon = <RefreshCw className="h-4 w-4 animate-spin" />
     message = `Sincronizando ${pendingCount} ${records(pendingCount)}...`
   } else if (status === 'error') {
-    tone = 'bg-red-900/20 text-red-400'
+    tone = 'bg-sync-error-bg text-sync-error-text'
     icon = <AlertTriangle className="h-4 w-4" />
     message = (
       <Link href="/pendentes" className="underline underline-offset-2">
@@ -50,7 +51,7 @@ export function SyncIndicator() {
     )
   } else {
     // Online with a non-empty queue.
-    tone = 'bg-slate-800/40 text-slate-200'
+    tone = 'bg-sync-draft-bg text-sync-draft-text'
     icon = <RefreshCw className="h-4 w-4" />
     message = `${pendingCount} ${records(pendingCount)} aguardando sincronização`
   }
@@ -63,7 +64,7 @@ export function SyncIndicator() {
       role="status"
       aria-live="polite"
       className={cn(
-        'fixed inset-x-0 top-0 z-50 flex h-9 items-center justify-center gap-2 px-4 text-xs font-medium',
+        'sticky top-topbar z-[9] flex h-9 items-center justify-center gap-2 border-b border-content-border px-4 text-xs font-medium',
         tone,
       )}
     >
@@ -73,7 +74,7 @@ export function SyncIndicator() {
         <button
           type="button"
           onClick={() => void syncNow()}
-          className="ml-2 rounded bg-white/10 px-2 py-0.5 font-medium transition-colors hover:bg-white/20"
+          className="ml-2 rounded bg-black/5 px-2 py-0.5 font-medium transition-colors hover:bg-black/10"
         >
           Sincronizar agora
         </button>

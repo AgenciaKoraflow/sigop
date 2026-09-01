@@ -163,6 +163,10 @@ const config: Config = {
         modal:  '0 10px 40px rgba(0,0,0,0.12)',
         focus:  '0 0 0 3px rgba(59,95,192,0.15)',
       },
+      spacing: {
+        sidebar: '280px',
+        topbar: '56px',
+      },
       width: {
         sidebar: '280px',
       },
