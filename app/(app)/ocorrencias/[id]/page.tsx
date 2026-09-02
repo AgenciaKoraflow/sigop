@@ -1,5 +1,5 @@
-import { FormOcorrencia } from '@/components/ocorrencias/FormOcorrencia'
+import { DetalheOcorrencia } from '@/components/ocorrencias/DetalheOcorrencia'
 
-export default function EditOccurrencePage({ params }: { params: { id: string } }) {
-  return <FormOcorrencia mode="edit" incidentId={params.id} />
+export default function IncidentDetailPage({ params }: { params: { id: string } }) {
+  return <DetalheOcorrencia incidentId={params.id} />
 }
