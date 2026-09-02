@@ -10,6 +10,7 @@ import {
   deletePendingPhoto,
   countPending,
   enqueueSync,
+  saveSetting,
 } from '@/lib/db'
 import type { SyncQueueItem, SyncPriority } from '@/lib/db/schema'
 
@@ -99,7 +100,17 @@ export async function processQueue(): Promise<void> {
 
   // Upload photos captured offline
   await processPendingPhotos(supabase, user.id)
+
+  // Record the last drain that left nothing behind — the "Pendentes" screen
+  // shows this as the last successful synchronisation timestamp.
+  const remaining = await countPending()
+  if (remaining.total === 0 && remaining.errors === 0 && remaining.photos === 0) {
+    await saveSetting(LAST_SYNC_SETTING_KEY, new Date().toISOString())
+  }
 }
+
+/** `offline_settings` key holding the ISO timestamp of the last clean sync. */
+export const LAST_SYNC_SETTING_KEY = 'sync:last_success_at'
 
 async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise<void> {
   const { entity_type, operation, payload } = item

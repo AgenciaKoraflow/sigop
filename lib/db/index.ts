@@ -198,6 +198,93 @@ export async function removeFromQueue(id: string) {
   await db.delete('sync_queue', id)
 }
 
+/** Every queue unit, regardless of status — used by the "Pendentes" screen. */
+export async function listAllQueue() {
+  const db = await getDB()
+  const all = await db.getAll('sync_queue')
+  return all.sort((a, b) => a.priority - b.priority || a.created_at.localeCompare(b.created_at))
+}
+
+/**
+ * Clear the backoff window for a single queue item so the next `processQueue`
+ * run picks it up immediately.
+ */
+export async function retryQueueItemNow(id: string) {
+  const db = await getDB()
+  const item = await db.get('sync_queue', id)
+  if (!item) return
+  await db.put('sync_queue', {
+    ...item,
+    status: 'pending',
+    next_attempt_at: null,
+    updated_at: new Date().toISOString(),
+  })
+}
+
+/**
+ * Reset the backoff of every errored queue item (and errored photo) back to
+ * "pending, retry now". Drives the header's "Tentar novamente" button.
+ */
+export async function resetAllBackoff() {
+  const db = await getDB()
+  const now = new Date().toISOString()
+
+  const queueTx = db.transaction('sync_queue', 'readwrite')
+  const queueItems = await queueTx.store.getAll()
+  await Promise.all(
+    queueItems
+      .filter((item) => item.status === 'error')
+      .map((item) =>
+        queueTx.store.put({
+          ...item,
+          status: 'pending',
+          next_attempt_at: null,
+          updated_at: now,
+        }),
+      ),
+  )
+  await queueTx.done
+
+  const photoTx = db.transaction('pending_photos', 'readwrite')
+  const photos = await photoTx.store.getAll()
+  await Promise.all(
+    photos
+      .filter((photo) => photo.status === 'error')
+      .map((photo) =>
+        photoTx.store.put({ ...photo, status: 'pending', last_error: null }),
+      ),
+  )
+  await photoTx.done
+}
+
+/**
+ * Permanently drop a queued item and any local draft it shadows. Irreversible —
+ * the caller is expected to have confirmed with the user first.
+ */
+export async function discardQueueItem(id: string) {
+  const db = await getDB()
+  await Promise.all([
+    db.delete('sync_queue', id),
+    db.delete('draft_incidents', id),
+    db.delete('draft_stops', id),
+    db.delete('offline_settings', `incident:offenders:${id}`),
+  ])
+}
+
+/** Drop a single pending photo (used by the photo group's "Descartar"). */
+export async function discardPendingPhoto(id: string) {
+  const db = await getDB()
+  await db.delete('pending_photos', id)
+}
+
+/** Clear the error state of a single pending photo so it uploads again. */
+export async function retryPendingPhotoNow(id: string) {
+  const db = await getDB()
+  const photo = await db.get('pending_photos', id)
+  if (!photo) return
+  await db.put('pending_photos', { ...photo, status: 'pending', last_error: null })
+}
+
 // =============================================
 // Recent records cache
 // =============================================

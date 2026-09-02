@@ -83,3 +83,12 @@
   /* Record number in mono */
   .reg-number { @apply font-mono text-sm font-medium text-ink; }
 }
+
+/* Print / "Exportar PDF" — drop the app chrome, keep the content column. */
+@media print {
+  aside, header, .sync-indicator, [data-print-hide] { display: none !important; }
+  .lg\:pl-sidebar { padding-left: 0 !important; }
+  .pt-topbar { padding-top: 0 !important; }
+  main { padding: 0 !important; }
+  body { background: #fff !important; }
+}
