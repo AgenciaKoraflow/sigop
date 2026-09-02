@@ -285,6 +285,23 @@ export async function retryPendingPhotoNow(id: string) {
   await db.put('pending_photos', { ...photo, status: 'pending', last_error: null })
 }
 
+/**
+ * Wipe every piece of offline user data — drafts, the sync queue, pending
+ * photos and the read-only record cache. Configuration in `offline_settings`
+ * is deliberately preserved. Used by "sign out anyway" when the queue still
+ * holds unsynced records the user chose to abandon.
+ */
+export async function clearOfflineData() {
+  const db = await getDB()
+  await Promise.all([
+    db.clear('draft_incidents'),
+    db.clear('draft_stops'),
+    db.clear('sync_queue'),
+    db.clear('pending_photos'),
+    db.clear('recent_records_cache'),
+  ])
+}
+
 // =============================================
 // Recent records cache
 // =============================================

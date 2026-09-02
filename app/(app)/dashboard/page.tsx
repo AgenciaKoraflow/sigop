@@ -1,3 +1,4 @@
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { OperationalDashboard } from '@/components/dashboard/OperationalDashboard'
 
 export const metadata = {
@@ -5,5 +6,9 @@ export const metadata = {
 }
 
 export default function DashboardPage() {
-  return <OperationalDashboard />
+  return (
+    <ProtectedRoute roles={['supervisor', 'administrator']}>
+      <OperationalDashboard />
+    </ProtectedRoute>
+  )
 }

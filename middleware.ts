@@ -30,17 +30,14 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  // DEVELOPMENT MODE: route protection is disabled while the app is built out.
-  // TODO: enable real protection in Phase 5 (Prompt 16) by uncommenting below.
-  void user
-  void pathname
-
-  // if (!user && !pathname.startsWith('/login')) {
-  //   return NextResponse.redirect(new URL('/login', request.url))
-  // }
-  // if (user && pathname === '/login') {
-  //   return NextResponse.redirect(new URL('/', request.url))
-  // }
+  // Route protection: unauthenticated users are pushed to /login; an
+  // authenticated user hitting /login is sent back to the app root.
+  if (!user && !pathname.startsWith('/login')) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+  if (user && pathname === '/login') {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
 
   return response
 }

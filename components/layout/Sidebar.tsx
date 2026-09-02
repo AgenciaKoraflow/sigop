@@ -1,13 +1,24 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { Loader2, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import { createClient } from '@/lib/supabase/client'
+import { signOut, forceSignOut } from '@/lib/supabase/auth'
+import { clearOfflineData } from '@/lib/db'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { useCurrentUser, initials, roleLabel } from '@/hooks/use-current-user'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { NAV_ITEMS, isNavItemActive } from './nav-items'
 
 interface SidebarProps {
@@ -24,10 +35,33 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const pendingCount = stats.pending + stats.errors + stats.photos
 
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+
   async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
+    setSigningOut(true)
+    try {
+      const { hasPendingItems } = await signOut()
+      if (hasPendingItems) {
+        setConfirmOpen(true)
+        return
+      }
+      router.push('/login')
+    } finally {
+      setSigningOut(false)
+    }
+  }
+
+  async function handleForceSignOut() {
+    setSigningOut(true)
+    try {
+      await clearOfflineData()
+      await forceSignOut()
+      setConfirmOpen(false)
+      router.push('/login')
+    } finally {
+      setSigningOut(false)
+    }
   }
 
   return (
@@ -101,12 +135,49 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={handleSignOut}
-          className="mt-3 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-red-950/40 hover:text-red-400"
+          disabled={signingOut}
+          className="mt-3 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-red-950/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <LogOut className="h-4 w-4 shrink-0" />
+          {signingOut && !confirmOpen ? (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4 shrink-0" />
+          )}
           Sair
         </button>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={(open) => !signingOut && setConfirmOpen(open)}>
+        <DialogContent className="max-w-md" aria-describedby="signout-warning">
+          <DialogHeader>
+            <DialogTitle>Sair com registros pendentes?</DialogTitle>
+            <DialogDescription id="signout-warning">
+              Você tem {pendingCount}{' '}
+              {pendingCount === 1
+                ? 'registro que ainda não foi enviado'
+                : 'registros que ainda não foram enviados'}{' '}
+              ao servidor. Se sair agora, {pendingCount === 1 ? 'ele será perdido' : 'eles serão perdidos'}.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={signingOut}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleForceSignOut}
+              disabled={signingOut}
+            >
+              {signingOut && <Loader2 className="h-4 w-4 animate-spin" />}
+              Sair mesmo assim
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
