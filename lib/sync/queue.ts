@@ -134,6 +134,10 @@ async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise
     if (operation === 'create') {
       const { error } = await supabase.from('offenders').upsert(payload, { onConflict: 'id' })
       if (error) throw new Error(error.message)
+    } else if (operation === 'update') {
+      const { id, ...data } = payload
+      const { error } = await supabase.from('offenders').update(data).eq('id', id as string)
+      if (error) throw new Error(error.message)
     }
     return
   }

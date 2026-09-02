@@ -82,7 +82,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { CreateOffenderDialog, LinkOffenderDialog } from './OffenderDialogs'
+import { BuscaMeliante } from '@/components/meliantes/BuscaMeliante'
+import { CreateOffenderDialog } from './OffenderDialogs'
 
 const LocationMap = dynamic(() => import('./LocationMap').then((m) => m.LocationMap), {
   ssr: false,
@@ -132,7 +133,6 @@ export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
   const [submitting, setSubmitting] = React.useState(false)
 
   const [offenders, setOffenders] = React.useState<LinkedOffender[]>([])
-  const [linkDialogOpen, setLinkDialogOpen] = React.useState(false)
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
   const [pendingRemove, setPendingRemove] = React.useState<string | null>(null)
 
@@ -839,16 +839,25 @@ export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
           </ul>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => setLinkDialogOpen(true)}>
-            <Link2 className="h-4 w-4" />
-            Vincular meliante existente
-          </Button>
-          <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(true)}>
-            <UserPlus className="h-4 w-4" />
-            Cadastrar novo meliante
-          </Button>
-        </div>
+        <BuscaMeliante
+          label="Vincular meliante existente"
+          excludeIds={offenders.map((offender) => offender.offenderId)}
+          onSelect={(selected) =>
+            addOffender({
+              offenderId: selected.id,
+              fullName: selected.fullName,
+              nickname: selected.nickname,
+              photoUrl: selected.mainPhotoUrl,
+              isNew: false,
+            })
+          }
+          onCreateNew={() => setCreateDialogOpen(true)}
+        />
+
+        <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(true)}>
+          <UserPlus className="h-4 w-4" />
+          Cadastrar novo meliante
+        </Button>
       </section>
 
       {/* Sticky footer ------------------------------------------------- */}
@@ -875,12 +884,6 @@ export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
       </footer>
 
       {/* Dialogs ------------------------------------------------------- */}
-      <LinkOffenderDialog
-        open={linkDialogOpen}
-        onOpenChange={setLinkDialogOpen}
-        linkedIds={offenders.map((o) => o.offenderId)}
-        onLink={addOffender}
-      />
       <CreateOffenderDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}

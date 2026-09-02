@@ -69,7 +69,7 @@ import {
   type StopFormValues,
 } from '@/lib/abordagens/form'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
-import { LinkOffenderDialog } from '@/components/ocorrencias/OffenderDialogs'
+import { BuscaMeliante } from '@/components/meliantes/BuscaMeliante'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Badge,
@@ -153,7 +153,6 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
 
   // Subject block (simple mode is collapsed by default)
   const [subjectExpanded, setSubjectExpanded] = React.useState(false)
-  const [searchOpen, setSearchOpen] = React.useState(false)
 
   // Subject photo
   const [photoBlob, setPhotoBlob] = React.useState<Blob | null>(null)
@@ -605,7 +604,6 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
       offender.fullName || offender.nickname || 'Meliante vinculado',
       { shouldDirty: true },
     )
-    setSearchOpen(false)
   }
 
   const clearExistingSubject = () => {
@@ -901,14 +899,16 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
                     </Button>
                   </div>
                 ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setSearchOpen(true)}
-                  >
-                    <Search className="h-4 w-4" />
-                    Buscar meliante existente
-                  </Button>
+                  <BuscaMeliante
+                    label="Buscar meliante existente"
+                    onSelect={(selected) =>
+                      linkExistingSubject({
+                        offenderId: selected.id,
+                        fullName: selected.fullName,
+                        nickname: selected.nickname,
+                      })
+                    }
+                  />
                 )}
               </div>
             )}
@@ -1293,13 +1293,6 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
         </div>
       </footer>
 
-      {/* Dialogs ------------------------------------------------------- */}
-      <LinkOffenderDialog
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        linkedIds={subjectExistingId ? [subjectExistingId] : []}
-        onLink={linkExistingSubject}
-      />
     </div>
   )
 }

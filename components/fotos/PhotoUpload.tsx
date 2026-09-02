@@ -39,6 +39,16 @@ export interface PhotoUploadProps {
   onPhotosChange?: (photos: ManagedPhoto[]) => void
   /** Hard cap on the number of photos. Default: 10. */
   maxPhotos?: number
+  /**
+   * First `position` (a.k.a. `sort_order`) assigned to photos managed here.
+   * Use `1` when another control owns the position-`0` "main" photo. Default: 0.
+   */
+  startPosition?: number
+  /**
+   * Pending photo id to hide from this uploader (e.g. the "main" photo managed
+   * by a sibling control that writes to the same entity).
+   */
+  excludeId?: string
 }
 
 type ItemStatus = 'compressing' | 'saved' | 'uploading' | 'synced' | 'error'
@@ -73,6 +83,8 @@ export function PhotoUpload({
   entityType,
   onPhotosChange,
   maxPhotos = DEFAULT_MAX_PHOTOS,
+  startPosition = 0,
+  excludeId,
 }: PhotoUploadProps) {
   const { toast } = useToast()
   const [items, setItems] = React.useState<UploadItem[]>([])
@@ -93,6 +105,7 @@ export function PhotoUpload({
     getPhotosByEntity(entityId).then((records) => {
       if (cancelled) return
       const loaded = records
+        .filter((record) => record.id !== excludeId)
         .slice()
         .sort((a, b) => a.position - b.position)
         .map<UploadItem>((record) => ({
@@ -109,7 +122,7 @@ export function PhotoUpload({
     return () => {
       cancelled = true
     }
-  }, [entityId])
+  }, [entityId, excludeId])
 
   // Revoke every preview URL when the component unmounts.
   React.useEffect(() => {
@@ -170,7 +183,7 @@ export function PhotoUpload({
       try {
         const blob = await compressImage(file)
         const previewUrl = createPreviewURL(blob)
-        const position = itemsRef.current.length
+        const position = itemsRef.current.length + startPosition
 
         setItems((prev) =>
           prev.map((item) =>
@@ -235,7 +248,7 @@ export function PhotoUpload({
         })
       }
     },
-    [entityId, entityType, reconcileWithStore, toast],
+    [entityId, entityType, reconcileWithStore, toast, startPosition],
   )
 
   const handleFiles = React.useCallback(
@@ -286,16 +299,18 @@ export function PhotoUpload({
       const remaining = await getPhotosByEntity(entityId)
       await Promise.all(
         remaining
+          .filter((record) => record.id !== excludeId)
           .slice()
           .sort((a, b) => a.position - b.position)
-          .map((record, index) =>
-            record.position === index
+          .map((record, index) => {
+            const target = index + startPosition
+            return record.position === target
               ? Promise.resolve()
-              : savePendingPhoto({ ...record, position: index }),
-          ),
+              : savePendingPhoto({ ...record, position: target })
+          }),
       )
     },
-    [entityId],
+    [entityId, excludeId, startPosition],
   )
 
   const atLimit = items.length >= maxPhotos
