@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useSessionProfile } from '@/hooks/use-session-profile'
 import type { UserRole } from '@/types/app.types'
 
 /**
@@ -73,31 +72,8 @@ const PERMISSIONS_BY_ROLE: Record<UserRole, RolePermissions> = {
 }
 
 export function usePermissions(): Permissions {
-  const [role, setRole] = useState<UserRole | null>(null)
-
-  useEffect(() => {
-    let active = true
-
-    async function loadRole() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      const profile = data as { role: string } | null
-      if (active && profile) setRole(profile.role as UserRole)
-    }
-
-    void loadRole()
-    return () => {
-      active = false
-    }
-  }, [])
+  const { data } = useSessionProfile()
+  const role = data?.role ?? null
 
   if (!role) {
     return {

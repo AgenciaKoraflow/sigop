@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useSessionProfile, type SessionProfile } from '@/hooks/use-session-profile'
 import type { UserRole } from '@/types/app.types'
 
 /**
@@ -11,12 +10,7 @@ import type { UserRole } from '@/types/app.types'
  * Identifiers stay in English to match the rest of the codebase; the labels
  * exposed to the UI stay in Portuguese.
  */
-export interface CurrentUser {
-  id: string
-  fullName: string
-  role: UserRole
-  photoUrl: string | null
-}
+export type CurrentUser = SessionProfile
 
 const ROLE_LABELS: Record<UserRole, string> = {
   agent: 'Agente',
@@ -38,51 +32,6 @@ export function initials(name: string | null | undefined): string {
 }
 
 export function useCurrentUser() {
-  const [user, setUser] = useState<CurrentUser | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let active = true
-
-    async function load() {
-      const supabase = createClient()
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser()
-
-      if (!authUser) {
-        if (active) setLoading(false)
-        return
-      }
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name, role, photo_url')
-        .eq('id', authUser.id)
-        .single()
-
-      const profile = data as
-        | { full_name: string; role: string; photo_url: string | null }
-        | null
-
-      if (active) {
-        if (profile) {
-          setUser({
-            id: authUser.id,
-            fullName: profile.full_name,
-            role: profile.role as UserRole,
-            photoUrl: profile.photo_url,
-          })
-        }
-        setLoading(false)
-      }
-    }
-
-    void load()
-    return () => {
-      active = false
-    }
-  }, [])
-
-  return { user, loading }
+  const { data, isLoading } = useSessionProfile()
+  return { user: data ?? null, loading: isLoading }
 }

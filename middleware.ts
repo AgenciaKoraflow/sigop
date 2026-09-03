@@ -43,5 +43,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js).*)'],
+  // Skip the auth round-trip for Next internals, the PWA service-worker assets
+  // and any static file request (images, fonts). Every match still costs one
+  // `auth.getUser()` call against the Supabase Auth server, so the tighter this
+  // is, the fewer per-navigation round-trips.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|icons/|manifest.json|sw.js|workbox-|.*\\.(?:png|jpe?g|gif|webp|svg|ico|woff2?|ttf|eot)$).*)',
+  ],
 }
