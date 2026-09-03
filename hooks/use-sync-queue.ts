@@ -19,7 +19,11 @@ const ENTITY_PRIORITY = 1
  */
 export function useSyncQueue() {
   const saveIncident = useCallback(
-    async (payload: Record<string, unknown>, operation: WriteOperation = 'create') => {
+    async (
+      payload: Record<string, unknown>,
+      operation: WriteOperation = 'create',
+      baselineVersion: number | null = null,
+    ) => {
       const id = (payload.id as string) ?? uuidv4()
       const now = new Date().toISOString()
       const data = { ...payload, id }
@@ -34,7 +38,7 @@ export function useSyncQueue() {
         last_error: null,
         next_attempt_at: null,
         local_version: 1,
-        remote_version: null,
+        remote_version: operation === 'update' ? baselineVersion : null,
         created_at: now,
         updated_at: now,
       }
@@ -56,7 +60,11 @@ export function useSyncQueue() {
   )
 
   const saveStop = useCallback(
-    async (payload: Record<string, unknown>, operation: WriteOperation = 'create') => {
+    async (
+      payload: Record<string, unknown>,
+      operation: WriteOperation = 'create',
+      baselineVersion: number | null = null,
+    ) => {
       const id = (payload.id as string) ?? uuidv4()
       const now = new Date().toISOString()
       const data = { ...payload, id }
@@ -71,7 +79,7 @@ export function useSyncQueue() {
         last_error: null,
         next_attempt_at: null,
         local_version: 1,
-        remote_version: null,
+        remote_version: operation === 'update' ? baselineVersion : null,
         created_at: now,
         updated_at: now,
       }

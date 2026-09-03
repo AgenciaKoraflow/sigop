@@ -47,6 +47,7 @@ import {
 import { STOP_OUTCOME_LABELS } from '@/lib/records/config'
 import { PhotoGallery, type RemotePhoto } from '@/components/fotos/PhotoGallery'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
+import { signPhotoUrls } from '@/lib/fotos/urls'
 import { BuscaMeliante } from '@/components/meliantes/BuscaMeliante'
 import { FormOcorrencia } from '@/components/ocorrencias/FormOcorrencia'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -326,7 +327,7 @@ async function loadIncidentDetail(
           .order('stopped_at', { ascending: false }),
         supabase
           .from('photos')
-          .select('id, public_url, description, sort_order')
+          .select('id, storage_path, description, sort_order')
           .eq('entity_type', 'incident')
           .eq('entity_id', id)
           .order('sort_order', { ascending: true }),
@@ -383,16 +384,21 @@ async function loadIncidentDetail(
         agentName: row.created_by ? profileNames.get(row.created_by) ?? null : null,
       }))
 
-      photos = ((photoRes.data ?? []) as unknown as {
+      const photoRows = (photoRes.data ?? []) as unknown as {
         id: string
-        public_url: string | null
+        storage_path: string | null
         description: string | null
         sort_order: number | null
-      }[])
-        .filter((photo) => Boolean(photo.public_url))
+      }[]
+      const signedUrls = await signPhotoUrls(
+        supabase,
+        photoRows.map((photo) => photo.storage_path),
+      )
+      photos = photoRows
+        .filter((photo) => photo.storage_path && signedUrls.has(photo.storage_path))
         .map((photo) => ({
           id: photo.id,
-          url: photo.public_url as string,
+          url: signedUrls.get(photo.storage_path as string) as string,
           description: photo.description,
           sortOrder: photo.sort_order,
         }))

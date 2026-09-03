@@ -178,6 +178,9 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null)
   const [, forceTick] = React.useState(0)
   const baselineRef = React.useRef<string>('')
+  // Server `version` seen when this edit began — the optimistic-concurrency
+  // baseline. Null for brand-new stops.
+  const serverBaselineVersion = React.useRef<number | null>(null)
 
   const typeValue = watch('type')
   const latitude = watch('latitude')
@@ -222,6 +225,7 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
           })
           setLocalStatus(draft.status)
           setExistsOnServer(draft.operation === 'update')
+          serverBaselineVersion.current = draft.remote_version ?? null
           if (base.type === 'stop' && extras && hasSubjectData(extras.subject)) {
             setSubjectExpanded(true)
           }
@@ -270,6 +274,8 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
             subject_existing_label: linkedLabel,
           })
           setExistsOnServer(true)
+          const v = (data as Record<string, unknown>).version
+          serverBaselineVersion.current = typeof v === 'number' ? v : null
           if (base.incident_id) void loadIncidentCard(base.incident_id)
         }
       } catch {
@@ -363,7 +369,7 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
         last_error: null,
         next_attempt_at: null,
         local_version: (existing?.local_version ?? 0) + 1,
-        remote_version: existing?.remote_version ?? null,
+        remote_version: existing?.remote_version ?? serverBaselineVersion.current,
         created_at: existing?.created_at ?? now,
         updated_at: now,
       }
@@ -406,7 +412,7 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
 
         // Persists the draft locally (status "pending") AND enqueues the stop
         // sync unit (priority bucket 1).
-        await saveStop(payload, operation)
+        await saveStop(payload, operation, serverBaselineVersion.current)
         await saveSetting(stopExtrasSettingKey(id), buildExtras(values))
 
         // ---- Subject (abordado) ------------------------------------------

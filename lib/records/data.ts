@@ -7,6 +7,7 @@ import {
 } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { listDraftIncidents, listDraftStops } from '@/lib/db'
+import { signPhotoUrls } from '@/lib/fotos/urls'
 import type { DraftIncident, DraftStop } from '@/lib/db/schema'
 import {
   PAGE_SIZE,
@@ -202,21 +203,32 @@ async function fetchThumbnails(
   const map = new Map<string, string>()
   if (ids.length === 0) return map
 
-  const { data } = await untyped()
+  const supabase = untyped()
+  const { data } = await supabase
     .from('photos')
-    .select('entity_id,public_url,sort_order')
+    .select('entity_id,storage_path,sort_order')
     .eq('entity_type', variant)
     .in('entity_id', ids)
     .order('sort_order', { ascending: true })
 
+  const firstPathByEntity = new Map<string, string>()
   for (const photo of (data ?? []) as {
     entity_id: string
-    public_url: string | null
+    storage_path: string | null
   }[]) {
-    if (photo.public_url && !map.has(photo.entity_id)) {
-      map.set(photo.entity_id, photo.public_url)
+    if (photo.storage_path && !firstPathByEntity.has(photo.entity_id)) {
+      firstPathByEntity.set(photo.entity_id, photo.storage_path)
     }
   }
+
+  const signedUrls = await signPhotoUrls(
+    supabase,
+    Array.from(firstPathByEntity.values()),
+  )
+  firstPathByEntity.forEach((path, entityId) => {
+    const url = signedUrls.get(path)
+    if (url) map.set(entityId, url)
+  })
   return map
 }
 

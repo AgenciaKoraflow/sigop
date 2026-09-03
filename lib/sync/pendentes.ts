@@ -239,22 +239,22 @@ async function loadConflicts(isOnline: boolean): Promise<ConflictView[]> {
   }[] = []
 
   for (const draft of incidents) {
-    if (draft.operation !== 'update') continue
+    if (draft.operation !== 'update' || draft.remote_version == null) continue
     candidates.push({
       draftId: draft.id,
       table: 'incidents',
       entityType: 'incident',
-      localVersion: draft.remote_version ?? draft.local_version,
+      localVersion: draft.remote_version,
       payload: draft.payload,
     })
   }
   for (const draft of stops) {
-    if (draft.operation !== 'update') continue
+    if (draft.operation !== 'update' || draft.remote_version == null) continue
     candidates.push({
       draftId: draft.id,
       table: 'stops',
       entityType: 'stop',
-      localVersion: draft.remote_version ?? draft.local_version,
+      localVersion: draft.remote_version,
       payload: draft.payload,
     })
   }

@@ -9,6 +9,7 @@ import {
   saveSetting,
 } from '@/lib/db'
 import type { RecentRecordCache } from '@/lib/db/schema'
+import { signPhotoUrls } from '@/lib/fotos/urls'
 import type { ActivityItem, DashboardData, DashboardKpis } from './types'
 import { buildMockDashboard } from './mock'
 
@@ -49,7 +50,7 @@ interface StopRow {
 
 interface PhotoRow {
   entity_id: string
-  public_url: string | null
+  storage_path: string | null
   sort_order: number | null
 }
 
@@ -232,15 +233,25 @@ export async function fetchDashboardOnline(): Promise<DashboardData> {
   if (entityIds.length > 0) {
     const { data: photos } = await supabase
       .from('photos')
-      .select('entity_id,public_url,sort_order')
+      .select('entity_id,storage_path,sort_order')
       .in('entity_id', entityIds)
       .order('sort_order', { ascending: true })
 
-    for (const photo of (photos ?? []) as PhotoRow[]) {
-      if (photo.public_url && !thumbs.has(photo.entity_id)) {
-        thumbs.set(photo.entity_id, photo.public_url)
+    const rows = (photos ?? []) as PhotoRow[]
+    const firstPathByEntity = new Map<string, string>()
+    for (const photo of rows) {
+      if (photo.storage_path && !firstPathByEntity.has(photo.entity_id)) {
+        firstPathByEntity.set(photo.entity_id, photo.storage_path)
       }
     }
+    const signedUrls = await signPhotoUrls(
+      supabase,
+      Array.from(firstPathByEntity.values()),
+    )
+    firstPathByEntity.forEach((path, entityId) => {
+      const url = signedUrls.get(path)
+      if (url) thumbs.set(entityId, url)
+    })
   }
 
   const serverItems = [

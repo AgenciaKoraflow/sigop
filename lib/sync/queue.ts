@@ -13,6 +13,7 @@ import {
   saveSetting,
 } from '@/lib/db'
 import type { SyncQueueItem, SyncPriority } from '@/lib/db/schema'
+import { detectConflict } from '@/lib/sync/conflict'
 
 /**
  * The generated `Database` types currently collapse write methods to `never`
@@ -112,6 +113,36 @@ export async function processQueue(): Promise<void> {
 /** `offline_settings` key holding the ISO timestamp of the last clean sync. */
 export const LAST_SYNC_SETTING_KEY = 'sync:last_success_at'
 
+/** Thrown when the server copy moved ahead of the baseline the edit started from. */
+export class SyncConflictError extends Error {
+  constructor(message = 'Conflito: este registro foi alterado no servidor. Abra "Pendentes" para resolver.') {
+    super(message)
+    this.name = 'SyncConflictError'
+  }
+}
+
+/**
+ * Guard an `update` against a stale write. The draft carries `remote_version` —
+ * the server `version` seen when editing began. If the server has moved past it,
+ * another device won the race; we refuse the write and let the "Pendentes"
+ * screen surface the conflict for manual resolution.
+ */
+async function assertNoConflict(
+  table: 'incidents' | 'stops' | 'offenders',
+  store: 'draft_incidents' | 'draft_stops',
+  id: string,
+): Promise<void> {
+  const db = await getDB()
+  const draft = store === 'draft_incidents'
+    ? await db.get('draft_incidents', id)
+    : await db.get('draft_stops', id)
+  const baseline = draft?.remote_version
+  if (baseline == null) return // no known baseline — cannot tell, let it through
+
+  const conflict = await detectConflict(id, baseline, table, draft?.payload ?? {})
+  if (conflict) throw new SyncConflictError()
+}
+
 async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise<void> {
   const { entity_type, operation, payload } = item
 
@@ -123,6 +154,7 @@ async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise
       if (error) throw new Error(error.message)
     } else if (operation === 'update') {
       const { id, ...data } = payload
+      await assertNoConflict('incidents', 'draft_incidents', id as string)
       const { error } = await supabase.from('incidents').update(data).eq('id', id as string)
       if (error) throw new Error(error.message)
     }
@@ -135,6 +167,7 @@ async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise
       if (error) throw new Error(error.message)
     } else if (operation === 'update') {
       const { id, ...data } = payload
+      await assertNoConflict('stops', 'draft_stops', id as string)
       const { error } = await supabase.from('stops').update(data).eq('id', id as string)
       if (error) throw new Error(error.message)
     }
@@ -181,15 +214,14 @@ async function processPendingPhotos(supabase: UntypedSupabase, userId: string): 
         })
       if (uploadError) throw new Error(uploadError.message)
 
-      const { data: urlData } = supabase.storage
-        .from('operational-photos')
-        .getPublicUrl(objectPath)
-
+      // `operational-photos` is a private bucket — there is no usable public
+      // URL. Readers exchange `storage_path` for a signed URL at display time
+      // (see `lib/fotos/urls.ts`).
       const { error: dbError } = await supabase.from('photos').upsert(
         {
           id: photo.id,
           storage_path: objectPath,
-          public_url: urlData.publicUrl,
+          public_url: null,
           entity_type: photo.entity_type,
           entity_id: photo.entity_id,
           description: photo.description,

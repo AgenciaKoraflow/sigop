@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { getDB } from '@/lib/db'
 import type { RemotePhoto } from '@/components/fotos/PhotoGallery'
+import { signPhotoUrls } from '@/lib/fotos/urls'
 import { fromOffenderPayload, type OffenderFormValues } from './form'
 
 /**
@@ -212,7 +213,7 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
       .eq('offender_id', id),
     supabase
       .from('photos')
-      .select('id, public_url, description, sort_order')
+      .select('id, storage_path, description, sort_order')
       .eq('entity_type', 'offender')
       .eq('entity_id', id)
       .order('sort_order', { ascending: true }),
@@ -244,11 +245,16 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
     }))
     .sort((a, b) => byDateDesc(a.occurredAt, b.occurredAt))
 
-  const photos: RemotePhoto[] = ((photoRows ?? []) as unknown as RawPhotoRow[])
-    .filter((photo) => Boolean(photo.public_url))
+  const rawPhotos = (photoRows ?? []) as unknown as RawPhotoRow[]
+  const signedUrls = await signPhotoUrls(
+    supabase,
+    rawPhotos.map((photo) => photo.storage_path),
+  )
+  const photos: RemotePhoto[] = rawPhotos
+    .filter((photo) => photo.storage_path && signedUrls.has(photo.storage_path))
     .map((photo) => ({
       id: photo.id,
-      url: photo.public_url as string,
+      url: signedUrls.get(photo.storage_path as string) as string,
       description: photo.description,
       sortOrder: photo.sort_order,
     }))
@@ -333,7 +339,7 @@ interface RawIncidentLink {
 
 interface RawPhotoRow {
   id: string
-  public_url: string | null
+  storage_path: string | null
   description: string | null
   sort_order: number | null
 }

@@ -152,6 +152,9 @@ export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null)
   const [, forceTick] = React.useState(0)
   const baselineRef = React.useRef<string>('')
+  // Server `version` seen when this edit began — the baseline for optimistic
+  // concurrency. Stays null for brand-new incidents.
+  const serverBaselineVersion = React.useRef<number | null>(null)
 
   const latitude = watch('latitude')
   const longitude = watch('longitude')
@@ -173,6 +176,7 @@ export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
           form.reset(fromIncidentPayload(draft.payload))
           setLocalStatus(draft.status)
           setExistsOnServer(draft.operation === 'update')
+          serverBaselineVersion.current = draft.remote_version ?? null
           const savedOffenders = (await readSetting(
             offendersSettingKey(incidentId),
           )) as LinkedOffender[] | undefined
@@ -198,6 +202,8 @@ export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
         if (!cancelled) {
           form.reset(fromIncidentPayload(data as Record<string, unknown>))
           setExistsOnServer(true)
+          const v = (data as Record<string, unknown>).version
+          serverBaselineVersion.current = typeof v === 'number' ? v : null
         }
 
         const { data: links } = await supabase
@@ -292,7 +298,7 @@ export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
         last_error: null,
         next_attempt_at: null,
         local_version: (existing?.local_version ?? 0) + 1,
-        remote_version: existing?.remote_version ?? null,
+        remote_version: existing?.remote_version ?? serverBaselineVersion.current,
         created_at: existing?.created_at ?? now,
         updated_at: now,
       }
@@ -337,7 +343,7 @@ export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
         const payload = buildPayload(values, operation)
 
         // Persists the draft locally (status "pending") AND enqueues the sync unit.
-        await saveIncident(payload, operation)
+        await saveIncident(payload, operation, serverBaselineVersion.current)
         await saveSetting(offendersSettingKey(id), offenders)
 
         for (const offender of offenders) {
