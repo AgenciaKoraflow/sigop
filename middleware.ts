@@ -32,7 +32,9 @@ export async function middleware(request: NextRequest) {
 
   // Route protection: unauthenticated users are pushed to /login; an
   // authenticated user hitting /login is sent back to the app root.
-  if (!user && !pathname.startsWith('/login')) {
+  // API routes are left alone — their handlers do their own auth and must be
+  // able to answer with a JSON 401/403 instead of an HTML redirect.
+  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/api')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
   if (user && pathname === '/login') {

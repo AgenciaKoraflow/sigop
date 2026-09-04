@@ -29,7 +29,7 @@ interface SidebarProps {
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { canViewDashboard } = usePermissions()
+  const { canViewDashboard, canManageUsers } = usePermissions()
   const { stats } = useOnlineStatus()
   const { user } = useCurrentUser()
 
@@ -87,6 +87,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <ul className="space-y-1">
           {NAV_ITEMS.map((item) => {
             if (item.supervisorOnly && !canViewDashboard) return null
+            if (item.adminOnly && !canManageUsers) return null
 
             const active = isNavItemActive(pathname, item.href)
             const Icon = item.icon
