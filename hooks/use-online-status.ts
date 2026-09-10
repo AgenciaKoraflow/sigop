@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { countPending, processQueue } from '@/lib/sync/queue'
+import { resetAllBackoff } from '@/lib/db'
 
 /**
  * Global connection / sync status for SIGOP's offline layer.
@@ -54,6 +55,21 @@ export function useOnlineStatus() {
     await refreshStats()
   }, [refreshStats])
 
+  /**
+   * Manual "Sincronizar agora": clears the progressive-backoff window on every
+   * errored item first, otherwise a fresh drain just skips them and the button
+   * looks broken.
+   */
+  const retryNow = useCallback(async () => {
+    if (isOffline()) return
+    try {
+      await resetAllBackoff()
+    } catch {
+      /* IndexedDB unavailable — fall through to a plain drain. */
+    }
+    await syncNow()
+  }, [syncNow])
+
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true)
@@ -71,9 +87,14 @@ export function useOnlineStatus() {
     window.addEventListener('offline', handleOffline)
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // Check current state on mount.
-    if (isOffline()) setStatus('offline')
-    void refreshStats()
+    // Check current state on mount. When we load already online, drain whatever
+    // a previous session left queued — no `online` event will fire to trigger it.
+    if (isOffline()) {
+      setStatus('offline')
+      void refreshStats()
+    } else {
+      void syncNow()
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline)
@@ -82,5 +103,5 @@ export function useOnlineStatus() {
     }
   }, [syncNow, refreshStats])
 
-  return { isOnline, status, stats, lastSync, syncNow }
+  return { isOnline, status, stats, lastSync, syncNow, retryNow }
 }

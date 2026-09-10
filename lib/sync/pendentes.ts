@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import {
+  deleteDraftIncident,
+  deleteDraftStop,
   discardPendingPhoto,
   discardQueueItem,
   enqueueSync,
@@ -274,6 +276,24 @@ async function loadConflicts(isOnline: boolean): Promise<ConflictView[]> {
       }
       if (!info) return null
 
+      // The server `version` bumps on our own successful writes too. If every
+      // meaningful field already matches the server, this is a leftover draft
+      // from a write that already landed — not a real conflict. Clean it up so
+      // it stops blocking the next edit and drop it from the screen.
+      const diffs = buildDiffs(candidate.payload, info.remoteData)
+      if (diffs.length === 0) {
+        try {
+          const queued = await (await getDB()).get('sync_queue', candidate.draftId)
+          if (!queued) {
+            if (candidate.table === 'incidents') await deleteDraftIncident(candidate.draftId)
+            else await deleteDraftStop(candidate.draftId)
+          }
+        } catch {
+          /* IndexedDB unavailable — ignore. */
+        }
+        return null
+      }
+
       const title =
         candidate.table === 'incidents'
           ? `Ocorrência ${String(info.remoteData.internal_number ?? candidate.draftId.slice(0, 8))}`
@@ -289,7 +309,7 @@ async function loadConflicts(isOnline: boolean): Promise<ConflictView[]> {
         detectedAt: info.detectedAt,
         localData: candidate.payload,
         remoteData: info.remoteData,
-        diffs: buildDiffs(candidate.payload, info.remoteData),
+        diffs,
       }
       return view
     }),

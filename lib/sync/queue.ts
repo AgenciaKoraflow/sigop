@@ -11,6 +11,8 @@ import {
   countPending,
   enqueueSync,
   saveSetting,
+  deleteDraftIncident,
+  deleteDraftStop,
 } from '@/lib/db'
 import type { SyncQueueItem, SyncPriority } from '@/lib/db/schema'
 import { detectConflict } from '@/lib/sync/conflict'
@@ -65,14 +67,72 @@ export function createQueueItem(
 // =============================================
 // Process the whole queue
 // =============================================
+
+/** Guards against overlapping drains (visibility + online + form flush racing). */
+let draining = false
+
+/**
+ * A queue item left in `syncing` means a previous drain was interrupted
+ * (tab closed / reloaded mid-flush). `listPendingQueue` ignores that status,
+ * so the item would be stranded forever — reset it back to `pending`.
+ */
+async function reviveStrandedItems(): Promise<void> {
+  const db = await getDB()
+  const all = await db.getAll('sync_queue')
+  await Promise.all(
+    all
+      .filter((item) => item.status === 'syncing')
+      .map((item) =>
+        db.put('sync_queue', { ...item, status: 'pending', next_attempt_at: null }),
+      ),
+  )
+}
+
+/**
+ * Drop the local entity draft once its queued write has landed on the server.
+ * Left behind, the draft keeps feeding `loadConflicts` a stale `remote_version`
+ * (the server `version` bumps on every write, including our own), which shows
+ * up as a phantom conflict and blocks the next edit.
+ *
+ * The draft is kept only if it was touched locally *after* this queue item was
+ * created — i.e. there are newer unsynced edits to preserve.
+ */
+async function clearSyncedDraft(item: SyncQueueItem): Promise<void> {
+  const db = await getDB()
+  if (item.entity_type === 'incident') {
+    const draft = await db.get('draft_incidents', item.id)
+    if (draft && draft.updated_at <= item.created_at) {
+      await deleteDraftIncident(item.id)
+      await db.delete('offline_settings', `incident:offenders:${item.id}`)
+    }
+  } else if (item.entity_type === 'stop') {
+    const draft = await db.get('draft_stops', item.id)
+    if (draft && draft.updated_at <= item.created_at) {
+      await deleteDraftStop(item.id)
+    }
+  }
+}
+
 export async function processQueue(): Promise<void> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return
+  if (draining) return
+  draining = true
 
+  try {
+    await runQueueDrain()
+  } finally {
+    draining = false
+  }
+}
+
+async function runQueueDrain(): Promise<void> {
   const supabase = createClient() as unknown as UntypedSupabase
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return
+
+  await reviveStrandedItems()
 
   const items = await listPendingQueue()
 
@@ -85,6 +145,7 @@ export async function processQueue(): Promise<void> {
     try {
       await syncItem(item, supabase)
       await removeFromQueue(item.id)
+      await clearSyncedDraft(item)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       const nextAttemptAt = computeNextAttempt(item.sync_attempts + 1)
@@ -122,15 +183,36 @@ export class SyncConflictError extends Error {
 }
 
 /**
+ * True when every field we are about to write already holds that value on the
+ * server row — i.e. this "update" is a replay of a write that already landed
+ * (the server `version` bumps on our own writes too, so a bare version check
+ * would flag it as a phantom conflict).
+ */
+function remoteAlreadyMatches(
+  payload: Record<string, unknown>,
+  remote: Record<string, unknown>,
+): boolean {
+  const skip = new Set(['id', 'version', 'updated_at', 'updated_by', 'synced_at'])
+  return Object.entries(payload).every(([key, value]) => {
+    if (skip.has(key)) return true
+    return JSON.stringify(value ?? null) === JSON.stringify(remote[key] ?? null)
+  })
+}
+
+/**
  * Guard an `update` against a stale write. The draft carries `remote_version` —
  * the server `version` seen when editing began. If the server has moved past it,
  * another device won the race; we refuse the write and let the "Pendentes"
  * screen surface the conflict for manual resolution.
+ *
+ * Exception: if the server row already equals the payload we're about to send,
+ * our own earlier write is what moved the version — that's not a conflict.
  */
 async function assertNoConflict(
   table: 'incidents' | 'stops' | 'offenders',
   store: 'draft_incidents' | 'draft_stops',
   id: string,
+  payload: Record<string, unknown>,
 ): Promise<void> {
   const db = await getDB()
   const draft = store === 'draft_incidents'
@@ -139,8 +221,10 @@ async function assertNoConflict(
   const baseline = draft?.remote_version
   if (baseline == null) return // no known baseline — cannot tell, let it through
 
-  const conflict = await detectConflict(id, baseline, table, draft?.payload ?? {})
-  if (conflict) throw new SyncConflictError()
+  const conflict = await detectConflict(id, baseline, table, payload)
+  if (!conflict) return
+  if (remoteAlreadyMatches(payload, conflict.remoteData)) return
+  throw new SyncConflictError()
 }
 
 async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise<void> {
@@ -154,7 +238,7 @@ async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise
       if (error) throw new Error(error.message)
     } else if (operation === 'update') {
       const { id, ...data } = payload
-      await assertNoConflict('incidents', 'draft_incidents', id as string)
+      await assertNoConflict('incidents', 'draft_incidents', id as string, data)
       const { error } = await supabase.from('incidents').update(data).eq('id', id as string)
       if (error) throw new Error(error.message)
     }
@@ -167,7 +251,7 @@ async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise
       if (error) throw new Error(error.message)
     } else if (operation === 'update') {
       const { id, ...data } = payload
-      await assertNoConflict('stops', 'draft_stops', id as string)
+      await assertNoConflict('stops', 'draft_stops', id as string, data)
       const { error } = await supabase.from('stops').update(data).eq('id', id as string)
       if (error) throw new Error(error.message)
     }

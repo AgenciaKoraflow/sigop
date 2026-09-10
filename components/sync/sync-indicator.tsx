@@ -15,7 +15,7 @@ const records = (n: number) => (n === 1 ? 'registro' : 'registros')
  * connection / sync state and offers a manual "Sincronizar agora" action.
  */
 export function SyncIndicator() {
-  const { status, stats, syncNow } = useOnlineStatus()
+  const { status, stats, retryNow } = useOnlineStatus()
 
   const pendingCount = stats.pending + stats.photos
   const hasPending = pendingCount > 0
@@ -57,7 +57,9 @@ export function SyncIndicator() {
   }
 
   const showSyncButton =
-    hasPending && status !== 'offline' && status !== 'syncing'
+    (hasPending || status === 'error') &&
+    status !== 'offline' &&
+    status !== 'syncing'
 
   return (
     <div
@@ -73,7 +75,7 @@ export function SyncIndicator() {
       {showSyncButton && (
         <button
           type="button"
-          onClick={() => void syncNow()}
+          onClick={() => void retryNow()}
           className="ml-2 rounded bg-black/5 px-2 py-0.5 font-medium transition-colors hover:bg-black/10"
         >
           Sincronizar agora
