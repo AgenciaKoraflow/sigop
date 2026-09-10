@@ -149,7 +149,6 @@ export interface OffenderIncidentHistoryItem {
   incidentId: string
   internalNumber: string | null
   type: string | null
-  status: string | null
   role: string | null
   occurredAt: string | null
   description: string | null
@@ -216,7 +215,7 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
     supabase
       .from('incident_offenders')
       .select(
-        'id, role, incident_id, incidents ( id, internal_number, type, status, occurred_at, description, address_street, address_district, address_city, deleted_at )',
+        'id, role, incident_id, incidents ( id, internal_number, type, occurred_at, description, address_street, address_district, address_city, deleted_at )',
       )
       .eq('offender_id', id),
     supabase
@@ -249,7 +248,6 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
       incidentId: link.incident_id,
       internalNumber: link.incidents?.internal_number ?? null,
       type: link.incidents?.type ?? null,
-      status: link.incidents?.status ?? null,
       role: link.role ?? null,
       occurredAt: link.incidents?.occurred_at ?? null,
       description: link.incidents?.description ?? null,
@@ -347,7 +345,6 @@ interface RawIncidentLink {
     id: string
     internal_number: string | null
     type: string | null
-    status: string | null
     occurred_at: string | null
     description: string | null
     address_street: string | null

@@ -1,6 +1,5 @@
 import { differenceInCalendarDays } from 'date-fns'
-import { INCIDENT_TYPE_LABELS, STATUS_LABELS } from '@/lib/dashboard/labels'
-import type { IncidentStatus } from '@/types/app.types'
+import { INCIDENT_TYPE_LABELS } from '@/lib/dashboard/labels'
 import {
   resolveRange,
   type DashboardIndicators,
@@ -77,6 +76,7 @@ export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicat
 
   const totalIncidents = daily.reduce((sum, d) => sum + d.incidents, 0)
   const totalStops = daily.reduce((sum, d) => sum + d.stops, 0)
+  const rangeDays = Math.max(differenceInCalendarDays(end, start) + 1, 1)
 
   const weightSum = Object.values(TYPE_WEIGHTS).reduce((a, b) => a + b, 0)
   const byType = Object.entries(TYPE_WEIGHTS)
@@ -91,22 +91,13 @@ export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicat
     })
     .sort((a, b) => b.count - a.count)
 
-  const closed = Math.round(totalIncidents * 0.62)
-  const inProgress = Math.round(totalIncidents * 0.18)
-  const open = Math.max(totalIncidents - closed - inProgress - 2, 1)
-  const archived = Math.max(totalIncidents - closed - inProgress - open, 0)
+  const flagranteIncidents = byType.find((t) => t.type === 'in_flagrante')?.count ?? 0
+  const flagranteStops = Math.round(totalStops * 0.12)
 
-  const statusCounts: Record<IncidentStatus, number> = {
-    open,
-    in_progress: inProgress,
-    closed,
-    archived,
-  }
-  const byStatus = (Object.keys(statusCounts) as IncidentStatus[])
-    .map((status) => ({ status, label: STATUS_LABELS[status], count: statusCounts[status] }))
-    .filter((entry) => entry.count > 0)
-
-  const flagranteType = byType.find((t) => t.type === 'in_flagrante')?.count ?? 0
+  const composition = [
+    { key: 'incidents' as const, label: 'Ocorrências', count: totalIncidents },
+    { key: 'stops' as const, label: 'Abordagens', count: totalStops },
+  ]
 
   const topOffenders = OFFENDER_SEEDS.map((seed, i) => ({
     id: `demo-off-${i + 1}`,
@@ -124,36 +115,33 @@ export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicat
     stopsCreated: Math.max(0, Math.round(totalStops / (5 + i) + rand() * 2)),
   })).sort((a, b) => b.incidentsCreated - a.incidentsCreated)
 
-  const staleIncidents = Array.from({ length: 5 }, (_, i) => {
-    const daysOpen = 8 + i * 4 + Math.round(rand() * 3)
+  const recentIncidents = Array.from({ length: 5 }, (_, i) => {
     const type = byType[i % byType.length]
     return {
-      id: `demo-stale-${i + 1}`,
+      id: `demo-recent-${i + 1}`,
       internalNumber: `OC-2026-${String(41 - i).padStart(6, '0')}`,
       type: type.type,
       typeLabel: type.label,
-      status: (i % 2 === 0 ? 'open' : 'in_progress') as IncidentStatus,
-      occurredAt: new Date(now - daysOpen * DAY_MS).toISOString(),
+      occurredAt: new Date(now - (i * 6 + rand() * 4) * 60 * 60 * 1000).toISOString(),
       agentName: AGENT_SEEDS[i % AGENT_SEEDS.length].fullName,
-      daysOpen,
     }
   })
 
   return {
     kpis: {
       totalIncidents,
-      pending: open + inProgress,
-      closed,
       totalStops,
-      flagrante: flagranteType + Math.round(totalStops * 0.12),
-      closureRate: totalIncidents > 0 ? Math.round((closed / totalIncidents) * 100) : 0,
+      flagrante: flagranteIncidents + flagranteStops,
+      flagranteIncidents,
+      avgIncidentsPerDay:
+        rangeDays > 0 ? Math.round((totalIncidents / rangeDays) * 10) / 10 : totalIncidents,
     },
     daily,
     byType,
-    byStatus,
+    composition,
     topOffenders,
     agentProductivity,
-    staleIncidents,
+    recentIncidents,
     syncAlerts: { conflicts: 0, errors: 0 },
     isMock: true,
     generatedAt: new Date().toISOString(),

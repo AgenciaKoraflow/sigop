@@ -40,7 +40,6 @@ import {
 import { characteristicLabel, offenderDisplayName } from '@/lib/meliantes/form'
 import {
   INCIDENT_TYPE_LABELS,
-  STATUS_LABELS,
   STOP_TYPE_LABELS,
   SYNC_LABELS,
 } from '@/lib/dashboard/labels'
@@ -146,7 +145,6 @@ interface LinkedIncidentView {
   id: string
   internalNumber: string | null
   type: string | null
-  status: string | null
   occurredAt: string | null
   description: string | null
 }
@@ -462,7 +460,7 @@ async function loadStopDetail(
       const supabase = untyped()
       const { data: inc } = await supabase
         .from('incidents')
-        .select('id, internal_number, type, status, occurred_at, description')
+        .select('id, internal_number, type, occurred_at, description')
         .eq('id', stop.incident_id)
         .maybeSingle()
       if (inc) {
@@ -471,7 +469,6 @@ async function loadStopDetail(
           id: row.id as string,
           internalNumber: (row.internal_number as string | null) ?? null,
           type: (row.type as string | null) ?? null,
-          status: (row.status as string | null) ?? null,
           occurredAt: (row.occurred_at as string | null) ?? null,
           description: (row.description as string | null) ?? null,
         }
@@ -941,21 +938,6 @@ export function DetalheAbordagem({ stopId: id }: DetalheAbordagemProps) {
                 {INCIDENT_TYPE_LABELS[incident.type ?? ''] ?? incident.type ?? '—'} ·{' '}
                 {fmtDateTime(incident.occurredAt)}
               </span>
-              {incident.status && (
-                <Badge
-                  variant={
-                    (['open', 'in_progress', 'closed', 'archived'] as const).includes(
-                      incident.status as 'open',
-                    )
-                      ? (incident.status as 'open')
-                      : 'secondary'
-                  }
-                  className="ml-auto"
-                >
-                  {STATUS_LABELS[incident.status as keyof typeof STATUS_LABELS] ??
-                    incident.status}
-                </Badge>
-              )}
             </div>
             {incident.description && (
               <p className="mt-1.5 line-clamp-2 text-sm text-ink-secondary">

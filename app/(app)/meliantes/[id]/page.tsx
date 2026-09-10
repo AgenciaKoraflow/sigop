@@ -18,7 +18,6 @@ import { stopOutcomeLabel } from '@/lib/abordagens/form'
 import { offenderRoleLabel } from '@/lib/ocorrencias/form'
 import {
   INCIDENT_TYPE_LABELS,
-  STATUS_LABELS,
   STOP_TYPE_LABELS,
 } from '@/lib/dashboard/labels'
 import { FormMeliante } from '@/components/meliantes/FormMeliante'
@@ -261,23 +260,8 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
                       {INCIDENT_TYPE_LABELS[incident.type ?? ''] ?? incident.type ?? '—'} ·{' '}
                       {fmtDay(incident.occurredAt)}
                     </span>
-                    <span className="ml-auto flex items-center gap-2">
-                      <span className="text-xs font-medium text-ink-secondary">
-                        {offenderRoleLabel(incident.role)}
-                      </span>
-                      {incident.status && (
-                        <Badge
-                          variant={
-                            (['open', 'in_progress', 'closed', 'archived'] as const).includes(
-                              incident.status as 'open',
-                            )
-                              ? (incident.status as 'open')
-                              : 'secondary'
-                          }
-                        >
-                          {STATUS_LABELS[incident.status as 'open'] ?? incident.status}
-                        </Badge>
-                      )}
+                    <span className="ml-auto text-xs font-medium text-ink-secondary">
+                      {offenderRoleLabel(incident.role)}
                     </span>
                   </div>
                   {fmtAddress([

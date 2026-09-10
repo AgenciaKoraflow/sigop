@@ -10,13 +10,11 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   ArrowLeft,
-  Archive,
   CloudOff,
   ExternalLink,
   History,
   ImagePlus,
   Loader2,
-  Lock,
   MapPin,
   Pencil,
   UserPlus,
@@ -30,7 +28,6 @@ import { usePermissions } from '@/hooks/use-permissions'
 import { useOnlineStatus } from '@/hooks/use-online-status'
 import { useCurrentUser, initials } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
-import { useSyncQueue } from '@/hooks/use-sync-queue'
 import { createQueueItem, enqueueSync, processQueue } from '@/lib/sync/queue'
 import {
   MAX_PHOTOS_PER_INCIDENT,
@@ -40,7 +37,6 @@ import {
 import { getMunicipalityName, getTerritorialAreaName } from '@/lib/ocorrencias/data'
 import {
   INCIDENT_TYPE_LABELS,
-  STATUS_LABELS,
   STOP_TYPE_LABELS,
   SYNC_LABELS,
   typeBadgeClass,
@@ -59,7 +55,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -110,7 +105,6 @@ interface IncidentScalar {
   internal_number: string | null
   type: string
   subtype: string | null
-  status: string
   description: string | null
   occurred_at: string | null
   address_street: string | null
@@ -175,7 +169,6 @@ interface IncidentDetail {
 const FIELD_LABELS: Record<string, string> = {
   type: 'Tipo',
   subtype: 'Subtipo',
-  status: 'Status',
   description: 'Descrição',
   occurred_at: 'Data da ocorrência',
   address_street: 'Logradouro',
@@ -219,10 +212,7 @@ function summarizeChanges(prev: unknown, next: unknown): AuditChange[] {
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—'
   if (typeof value === 'string') {
-    const label =
-      INCIDENT_TYPE_LABELS[value] ??
-      STATUS_LABELS[value as keyof typeof STATUS_LABELS] ??
-      null
+    const label = INCIDENT_TYPE_LABELS[value] ?? null
     if (label) return label
     return value.length > 80 ? `${value.slice(0, 80)}…` : value
   }
@@ -239,7 +229,6 @@ function toIncidentScalar(id: string, row: Record<string, unknown>): IncidentSca
     internal_number: str('internal_number'),
     type: str('type') ?? 'other',
     subtype: str('subtype'),
-    status: str('status') ?? 'open',
     description: str('description'),
     occurred_at: str('occurred_at'),
     address_street: str('address_street'),
@@ -527,15 +516,12 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { user } = useCurrentUser()
-  const { saveIncident } = useSyncQueue()
   const perms = usePermissions()
   const { isOnline } = useOnlineStatus()
 
   const [editing, setEditing] = React.useState(false)
   const [showUpload, setShowUpload] = React.useState(false)
   const [linkOpen, setLinkOpen] = React.useState(false)
-  const [confirmAction, setConfirmAction] = React.useState<'close' | 'archive' | null>(null)
-  const [working, setWorking] = React.useState(false)
 
   const queryKey = React.useMemo(
     () => ['incident-detail', id, isOnline, perms.canViewAuditLog] as const,
@@ -550,59 +536,6 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
   const refresh = React.useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['incident-detail', id] })
   }, [queryClient, id])
-
-  // -----------------------------------------------------------------------
-  // Status transitions (Encerrar / Arquivar) — offline-first via sync queue
-  // -----------------------------------------------------------------------
-  const applyStatus = React.useCallback(
-    async (next: 'closed' | 'archived') => {
-      if (!data) return
-      setWorking(true)
-      try {
-        const inc = data.incident
-        const payload: Record<string, unknown> = {
-          id: inc.id,
-          type: inc.type,
-          subtype: inc.subtype,
-          description: inc.description,
-          status: next,
-          occurred_at: inc.occurred_at,
-          address_street: inc.address_street,
-          address_number: inc.address_number,
-          address_district: inc.address_district,
-          address_city: inc.address_city,
-          address_state: inc.address_state,
-          address_zip: inc.address_zip,
-          latitude: inc.latitude,
-          longitude: inc.longitude,
-          gmaps_link: inc.gmaps_link,
-          municipality_id: inc.municipality_id,
-          territorial_area_id: inc.territorial_area_id,
-        }
-        if (user?.id) payload.updated_by = user.id
-
-        await saveIncident(payload, 'update')
-
-        toast({
-          title: next === 'closed' ? 'Ocorrência encerrada' : 'Ocorrência arquivada',
-          description: isOnline
-            ? 'Enviando para o servidor…'
-            : 'Sem conexão — será sincronizada automaticamente.',
-        })
-        setConfirmAction(null)
-        refresh()
-      } catch (error) {
-        toast({
-          title: 'Não foi possível concluir a ação',
-          description: error instanceof Error ? error.message : 'Tente novamente.',
-          variant: 'destructive',
-        })
-      } finally {
-        setWorking(false)
-      }
-    },
-    [data, isOnline, refresh, saveIncident, toast, user?.id],
-  )
 
   const linkOffender = React.useCallback(
     async (offenderId: string) => {
@@ -745,18 +678,6 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
                 {INCIDENT_TYPE_LABELS[incident.type] ?? incident.type}
                 {incident.subtype ? ` · ${incident.subtype}` : ''}
               </span>
-              <Badge
-                variant={
-                  (['open', 'in_progress', 'closed', 'archived'] as const).includes(
-                    incident.status as 'open',
-                  )
-                    ? (incident.status as 'open')
-                    : 'secondary'
-                }
-              >
-                {STATUS_LABELS[incident.status as keyof typeof STATUS_LABELS] ??
-                  incident.status}
-              </Badge>
               {isLocal ? (
                 <Badge variant={syncStatus ?? 'draft'} className="gap-1">
                   <CloudOff className="h-3 w-3" />
@@ -783,26 +704,6 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
                 Editar
               </Button>
             )}
-            {perms.canCloseIncident && incident.status !== 'closed' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirmAction('close')}
-              >
-                <Lock className="h-4 w-4" />
-                Encerrar
-              </Button>
-            )}
-            {perms.canArchive && incident.status !== 'archived' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirmAction('archive')}
-              >
-                <Archive className="h-4 w-4" />
-                Arquivar
-              </Button>
-            )}
           </div>
         </div>
       </header>
@@ -817,13 +718,6 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
             value={
               (INCIDENT_TYPE_LABELS[incident.type] ?? incident.type) +
               (incident.subtype ? ` · ${incident.subtype}` : '')
-            }
-          />
-          <Detail
-            label="Status"
-            value={
-              STATUS_LABELS[incident.status as keyof typeof STATUS_LABELS] ??
-              incident.status
             }
           />
           <Detail label="Registrada em" value={fmtDateTime(incident.created_at)} />
@@ -1059,39 +953,6 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
             onSelect={(selected) => void linkOffender(selected.id)}
             onCreateNew={() => router.push('/meliantes/nova')}
           />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={confirmAction !== null}
-        onOpenChange={(open) => !open && setConfirmAction(null)}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {confirmAction === 'close' ? 'Encerrar ocorrência?' : 'Arquivar ocorrência?'}
-            </DialogTitle>
-            <DialogDescription>
-              {confirmAction === 'close'
-                ? 'A ocorrência será marcada como encerrada. Você ainda poderá consultá-la.'
-                : 'A ocorrência será arquivada e sairá das listagens operacionais padrão.'}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmAction(null)} disabled={working}>
-              Cancelar
-            </Button>
-            <Button
-              variant={confirmAction === 'archive' ? 'destructive' : 'primary'}
-              disabled={working}
-              onClick={() =>
-                void applyStatus(confirmAction === 'close' ? 'closed' : 'archived')
-              }
-            >
-              {working ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {confirmAction === 'close' ? 'Encerrar' : 'Arquivar'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

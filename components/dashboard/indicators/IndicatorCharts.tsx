@@ -19,16 +19,15 @@ import {
 } from 'recharts'
 import { Card } from '@/components/ui/card'
 import type {
+  CompositionEntry,
   DailyVolumePoint,
-  StatusBreakdownEntry,
   TypeBreakdownEntry,
 } from '@/lib/dashboard/indicators'
 
 /**
  * Recharts visualisations for the operational dashboard. Colours come from the
  * validated categorical palette (blue / orange / aqua / yellow / magenta /
- * green); the status donut reuses SIGOP's reserved operational-status hues so it
- * matches the badges everywhere else.
+ * green).
  */
 
 // Validated categorical palette (light surface) — fixed order, never cycled.
@@ -48,11 +47,9 @@ const BAR_PALETTE = [
   '#e34948', // red
 ]
 
-const STATUS_COLORS: Record<string, string> = {
-  open: '#1d4ed8',
-  in_progress: '#c2410c',
-  closed: '#15803d',
-  archived: '#6b7280',
+const COMPOSITION_COLORS: Record<string, string> = {
+  incidents: '#2a78d6',
+  stops: '#eb6834',
 }
 
 const AXIS = '#898781'
@@ -227,15 +224,18 @@ export function TypeDistributionChart({ data }: { data: TypeBreakdownEntry[] }) 
 }
 
 // ---------------------------------------------------------------------------
-// 3 — Status atual (donut)
+// 3 — Composição de registros (donut)
 // ---------------------------------------------------------------------------
-export function StatusDonutChart({ data }: { data: StatusBreakdownEntry[] }) {
+export function CompositionDonutChart({ data }: { data: CompositionEntry[] }) {
   const total = data.reduce((sum, entry) => sum + entry.count, 0)
 
   return (
-    <ChartCard title="Status atual" subtitle="Distribuição das ocorrências por status">
+    <ChartCard
+      title="Composição de registros"
+      subtitle="Ocorrências e abordagens no período"
+    >
       {total === 0 ? (
-        <EmptyState label="Sem ocorrências no período" />
+        <EmptyState label="Sem registros no período" />
       ) : (
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -252,21 +252,21 @@ export function StatusDonutChart({ data }: { data: StatusBreakdownEntry[] }) {
                 strokeWidth={2}
               >
                 {data.map((entry) => (
-                  <Cell key={entry.status} fill={STATUS_COLORS[entry.status] ?? '#6b7280'} />
+                  <Cell key={entry.key} fill={COMPOSITION_COLORS[entry.key] ?? '#6b7280'} />
                 ))}
               </Pie>
               <Tooltip
                 contentStyle={tooltipStyle}
                 formatter={(value: number) => [
                   `${value} (${Math.round((value / total) * 100)}%)`,
-                  'Ocorrências',
+                  'Registros',
                 ]}
               />
               <Legend
                 iconType="circle"
                 wrapperStyle={{ fontSize: 12 }}
                 formatter={(value, entry) => {
-                  const count = (entry?.payload as unknown as StatusBreakdownEntry)?.count ?? 0
+                  const count = (entry?.payload as unknown as CompositionEntry)?.count ?? 0
                   return `${value} — ${count}`
                 }}
               />

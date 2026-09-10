@@ -33,7 +33,6 @@ import {
   AUTOSAVE_DELAY_MS,
   INCIDENT_DESCRIPTION_MAX,
   INCIDENT_DESCRIPTION_MIN,
-  INCIDENT_STATUS_OPTIONS,
   INCIDENT_TYPE_OPTIONS,
   MAX_PHOTOS_PER_INCIDENT,
   OFFENDER_ROLE_OPTIONS,
@@ -552,50 +551,27 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
       <section className="space-y-4">
         <SectionTitle index={1}>Identificação</SectionTitle>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tipo de ocorrência" error={formState.errors.type?.message} required>
-            <Controller
-              control={control}
-              name="type"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INCIDENT_TYPE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <span className="mr-2">{option.emoji}</span>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
-
-          <Field label="Status" error={formState.errors.status?.message}>
-            <Controller
-              control={control}
-              name="status"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INCIDENT_STATUS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
-        </div>
+        <Field label="Tipo de ocorrência" error={formState.errors.type?.message} required>
+          <Controller
+            control={control}
+            name="type"
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INCIDENT_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <span className="mr-2">{option.emoji}</span>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </Field>
 
         {typeValue && (
           <Field label="Subtipo" hint="Detalhe livre, ex.: “furto de fiação”, “tentativa”">

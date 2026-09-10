@@ -34,7 +34,6 @@ interface IncidentRow {
   id: string
   internal_number: string | null
   type: string
-  status: string
   address_street: string | null
   address_district: string | null
   address_city: string | null
@@ -62,7 +61,6 @@ function incidentToItem(row: IncidentRow, thumbnailUrl: string | null): Activity
     kind: 'incident',
     internalNumber: row.internal_number ?? `OC-${shortId(row.id)}`,
     entityType: row.type,
-    status: (row.status as ActivityItem['status']) ?? null,
     street: row.address_street,
     district: row.address_district,
     city: row.address_city,
@@ -79,7 +77,6 @@ function stopToItem(row: StopRow, thumbnailUrl: string | null): ActivityItem {
     kind: 'stop',
     internalNumber: `AB-${shortId(row.id)}`,
     entityType: row.type,
-    status: null,
     street: row.address_street,
     district: row.address_district,
     city: row.address_city,
@@ -108,7 +105,6 @@ async function mergeLocalDrafts(serverItems: ActivityItem[]): Promise<ActivityIt
       kind: 'incident',
       internalNumber: (p.internal_number as string) ?? `OC-${shortId(draft.id)}`,
       entityType: (p.type as string) ?? 'other',
-      status: (p.status as ActivityItem['status']) ?? 'open',
       street: (p.address_street as string | null) ?? null,
       district: (p.address_district as string | null) ?? null,
       city: (p.address_city as string | null) ?? null,
@@ -126,7 +122,6 @@ async function mergeLocalDrafts(serverItems: ActivityItem[]): Promise<ActivityIt
       kind: 'stop',
       internalNumber: `AB-${shortId(draft.id)}`,
       entityType: (p.type as string) ?? 'stop',
-      status: null,
       street: (p.address_street as string | null) ?? null,
       district: (p.address_district as string | null) ?? null,
       city: (p.address_city as string | null) ?? null,
@@ -141,10 +136,13 @@ async function mergeLocalDrafts(serverItems: ActivityItem[]): Promise<ActivityIt
 }
 
 function deriveKpis(items: ActivityItem[]): DashboardKpis {
+  const startOfToday = new Date().setHours(0, 0, 0, 0)
   return {
     totalIncidents: items.filter((i) => i.kind === 'incident').length,
-    inProgress: items.filter((i) => i.status === 'in_progress').length,
-    closed: items.filter((i) => i.status === 'closed').length,
+    today: items.filter(
+      (i) => i.kind === 'incident' && new Date(i.occurredAt).getTime() >= startOfToday,
+    ).length,
+    flagrante: items.filter((i) => i.entityType === 'in_flagrante').length,
     stops: items.filter((i) => i.kind === 'stop').length,
   }
 }
@@ -179,19 +177,21 @@ async function persistCache(
 export async function fetchDashboardOnline(): Promise<DashboardData> {
   const supabase = createClient()
   const since = since30d()
+  const startOfToday = new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
 
   const [
     incidentsRes,
     stopsRes,
     totalRes,
-    inProgressRes,
-    closedRes,
+    todayRes,
+    flagranteIncidentsRes,
+    flagranteStopsRes,
     stopsCountRes,
   ] = await Promise.all([
     supabase
       .from('incidents')
       .select(
-        'id,internal_number,type,status,address_street,address_district,address_city,occurred_at',
+        'id,internal_number,type,address_street,address_district,address_city,occurred_at',
       )
       .is('deleted_at', null)
       .gte('occurred_at', since)
@@ -213,13 +213,19 @@ export async function fetchDashboardOnline(): Promise<DashboardData> {
       .from('incidents')
       .select('id', { count: 'exact', head: true })
       .is('deleted_at', null)
-      .eq('status', 'in_progress'),
+      .gte('occurred_at', startOfToday),
     supabase
       .from('incidents')
       .select('id', { count: 'exact', head: true })
       .is('deleted_at', null)
-      .eq('status', 'closed')
+      .eq('type', 'in_flagrante')
       .gte('occurred_at', since),
+    supabase
+      .from('stops')
+      .select('id', { count: 'exact', head: true })
+      .is('deleted_at', null)
+      .eq('type', 'in_flagrante')
+      .gte('stopped_at', since),
     supabase
       .from('stops')
       .select('id', { count: 'exact', head: true })
@@ -268,8 +274,8 @@ export async function fetchDashboardOnline(): Promise<DashboardData> {
   const items = await mergeLocalDrafts(serverItems)
   const kpis: DashboardKpis = {
     totalIncidents: totalRes.count ?? 0,
-    inProgress: inProgressRes.count ?? 0,
-    closed: closedRes.count ?? 0,
+    today: todayRes.count ?? 0,
+    flagrante: (flagranteIncidentsRes.count ?? 0) + (flagranteStopsRes.count ?? 0),
     stops: stopsCountRes.count ?? 0,
   }
 

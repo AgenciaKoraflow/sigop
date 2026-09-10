@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { IncidentType, IncidentStatus } from '@/types/app.types'
+import type { IncidentType } from '@/types/app.types'
 
 /**
  * Shared schema, constants and helpers for the incident form
@@ -33,13 +33,6 @@ export const INCIDENT_TYPE_OPTIONS: {
   { value: 'other', label: 'Outros', emoji: '📋' },
 ]
 
-export const INCIDENT_STATUS_OPTIONS: { value: IncidentStatus; label: string }[] = [
-  { value: 'open', label: 'Aberta' },
-  { value: 'in_progress', label: 'Em andamento' },
-  { value: 'closed', label: 'Encerrada' },
-  { value: 'archived', label: 'Arquivada' },
-]
-
 /** `incident_offenders.role` — check constraint values + Portuguese labels. */
 export type OffenderRole = 'suspect' | 'perpetrator' | 'victim' | 'witness'
 
@@ -68,7 +61,6 @@ export const incidentFormSchema = z
     subtype: z.string().trim().max(120, 'Máximo de 120 caracteres').optional().or(z.literal('')),
     /** `datetime-local` string, e.g. `2026-09-01T14:30`. */
     occurred_at: z.string().min(1, 'Informe a data e hora da ocorrência'),
-    status: z.enum(['open', 'in_progress', 'closed', 'archived']),
     description: z
       .string()
       .trim()
@@ -142,7 +134,6 @@ export const emptyIncidentForm = (): IncidentFormValues => ({
   type: 'theft',
   subtype: '',
   occurred_at: toDatetimeLocal(new Date()),
-  status: 'open',
   description: '',
   address_zip: '',
   address_street: '',
@@ -173,7 +164,6 @@ export function toIncidentPayload(
     type: values.type,
     subtype: nullIfEmpty(values.subtype),
     description: values.description.trim(),
-    status: values.status,
     occurred_at: new Date(values.occurred_at).toISOString(),
     address_street: nullIfEmpty(values.address_street),
     address_number: nullIfEmpty(values.address_number),
@@ -204,7 +194,6 @@ export function fromIncidentPayload(payload: Record<string, unknown>): IncidentF
       typeof occurredRaw === 'string' && occurredRaw
         ? toDatetimeLocal(new Date(occurredRaw))
         : toDatetimeLocal(new Date()),
-    status: (payload.status as IncidentFormValues['status']) ?? 'open',
     description: str('description'),
     address_zip: str('address_zip'),
     address_street: str('address_street'),

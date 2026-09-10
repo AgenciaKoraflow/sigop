@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils/cn'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { ActivityItem, RangeKey } from '@/lib/dashboard/types'
-import { STATUS_LABELS, SYNC_LABELS, typeBadgeClass, typeLabel } from '@/lib/dashboard/labels'
+import { SYNC_LABELS, typeBadgeClass, typeLabel } from '@/lib/dashboard/labels'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -68,9 +68,6 @@ function ActivityRow({ item }: { item: ActivityItem }) {
           >
             {typeLabel(item.kind, item.entityType)}
           </span>
-          {item.status && (
-            <Badge variant={item.status}>{STATUS_LABELS[item.status]}</Badge>
-          )}
           {item.syncStatus && (
             <Badge variant={item.syncStatus}>{SYNC_LABELS[item.syncStatus]}</Badge>
           )}

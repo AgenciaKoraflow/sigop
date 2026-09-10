@@ -16,8 +16,6 @@ import {
   type SortDirection,
 } from '@/lib/records/config'
 
-const INCIDENT_STATUS_VARIANTS = new Set(['open', 'in_progress', 'closed', 'archived'])
-
 export function formatDateTime(iso: string): string {
   try {
     return format(new Date(iso), "dd/MM/yy 'às' HH:mm", { locale: ptBR })
@@ -46,7 +44,7 @@ export function SortIcon({
   )
 }
 
-/** Status (incidents) or outcome (stops) badge. */
+/** Outcome badge (stops). Incidents have no secondary column. */
 export function SecondaryBadge({
   variant,
   value,
@@ -54,13 +52,10 @@ export function SecondaryBadge({
   variant: RecordVariant
   value: string | null
 }) {
+  if (!RECORD_CONFIG[variant].hasSecondary) return null
   if (!value) return <span className="text-xs text-ink-muted">—</span>
 
   const label = RECORD_CONFIG[variant].secondaryLabels[value] ?? value
-
-  if (variant === 'incident' && INCIDENT_STATUS_VARIANTS.has(value)) {
-    return <Badge variant={value as 'open'}>{label}</Badge>
-  }
 
   return (
     <span

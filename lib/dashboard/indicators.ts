@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  differenceInCalendarDays,
   endOfDay,
   startOfDay,
   startOfMonth,
@@ -8,11 +9,7 @@ import {
 } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { loadPendingSnapshot } from '@/lib/sync/pendentes'
-import {
-  INCIDENT_TYPE_LABELS,
-  STATUS_LABELS,
-} from '@/lib/dashboard/labels'
-import type { IncidentStatus } from '@/types/app.types'
+import { INCIDENT_TYPE_LABELS } from '@/lib/dashboard/labels'
 import { buildMockIndicators } from './indicators-mock'
 
 /**
@@ -101,8 +98,8 @@ export interface TypeBreakdownEntry {
   pct: number
 }
 
-export interface StatusBreakdownEntry {
-  status: IncidentStatus
+export interface CompositionEntry {
+  key: 'incidents' | 'stops'
   label: string
   count: number
 }
@@ -123,27 +120,24 @@ export interface AgentProductivityRow {
   stopsCreated: number
 }
 
-export interface StaleIncidentRow {
+export interface RecentIncidentRow {
   id: string
   internalNumber: string | null
   type: string
   typeLabel: string
-  status: IncidentStatus
   occurredAt: string
   agentName: string | null
-  daysOpen: number
 }
 
 export interface DashboardKpiSet {
   totalIncidents: number
-  /** `open` + `in_progress`. */
-  pending: number
-  closed: number
   totalStops: number
   /** Flagrant incidents + flagrant stops. */
   flagrante: number
-  /** `closed / totalIncidents`, 0–100. */
-  closureRate: number
+  /** Incidents with `type = 'in_flagrante'`. */
+  flagranteIncidents: number
+  /** Average incidents per day across the selected range. */
+  avgIncidentsPerDay: number
 }
 
 export interface SyncAlertCounts {
@@ -155,10 +149,10 @@ export interface DashboardIndicators {
   kpis: DashboardKpiSet
   daily: DailyVolumePoint[]
   byType: TypeBreakdownEntry[]
-  byStatus: StatusBreakdownEntry[]
+  composition: CompositionEntry[]
   topOffenders: TopOffenderRow[]
   agentProductivity: AgentProductivityRow[]
-  staleIncidents: StaleIncidentRow[]
+  recentIncidents: RecentIncidentRow[]
   syncAlerts: SyncAlertCounts
   /** Demo dataset — the database has no records for this range. */
   isMock: boolean
@@ -170,10 +164,6 @@ export interface DashboardIndicators {
 // ---------------------------------------------------------------------------
 interface StatsPayload {
   total: number
-  open: number
-  in_progress: number
-  closed: number
-  archived: number
   in_flagrante: number
   by_type: Record<string, number>
   stops_total: number
@@ -193,22 +183,21 @@ interface StatsPayload {
     incidents_created: number | string
     stops_created: number | string
   }[]
-  stale_incidents: {
+  recent_incidents: {
     id: string
     internal_number: string | null
     type: string
-    status: string
     occurred_at: string
     agent_name: string | null
-    days_open: number | string
   }[]
 }
 
-const STATUS_ORDER: IncidentStatus[] = ['open', 'in_progress', 'closed', 'archived']
-
-function toIndicators(payload: StatsPayload, syncAlerts: SyncAlertCounts): DashboardIndicators {
+function toIndicators(
+  payload: StatsPayload,
+  syncAlerts: SyncAlertCounts,
+  rangeDays: number,
+): DashboardIndicators {
   const total = Number(payload.total ?? 0)
-  const closed = Number(payload.closed ?? 0)
 
   const byType: TypeBreakdownEntry[] = Object.entries(payload.by_type ?? {})
     .map(([type, count]) => ({
@@ -219,28 +208,20 @@ function toIndicators(payload: StatsPayload, syncAlerts: SyncAlertCounts): Dashb
     }))
     .sort((a, b) => b.count - a.count)
 
-  const byStatus: StatusBreakdownEntry[] = STATUS_ORDER.map((status) => ({
-    status,
-    label: STATUS_LABELS[status],
-    count: Number(
-      status === 'open'
-        ? payload.open
-        : status === 'in_progress'
-          ? payload.in_progress
-          : status === 'closed'
-            ? payload.closed
-            : payload.archived,
-    ),
-  })).filter((entry) => entry.count > 0)
+  const totalStops = Number(payload.stops_total ?? 0)
+  const composition: CompositionEntry[] = [
+    { key: 'incidents', label: 'Ocorrências', count: total },
+    { key: 'stops', label: 'Abordagens', count: totalStops },
+  ]
 
   return {
     kpis: {
       totalIncidents: total,
-      pending: Number(payload.open ?? 0) + Number(payload.in_progress ?? 0),
-      closed,
-      totalStops: Number(payload.stops_total ?? 0),
+      totalStops,
       flagrante: Number(payload.in_flagrante ?? 0) + Number(payload.stops_flagrante ?? 0),
-      closureRate: total > 0 ? Math.round((closed / total) * 100) : 0,
+      flagranteIncidents: Number(payload.in_flagrante ?? 0),
+      avgIncidentsPerDay:
+        rangeDays > 0 ? Math.round((total / rangeDays) * 10) / 10 : total,
     },
     daily: (payload.daily ?? []).map((d) => ({
       day: d.day,
@@ -248,7 +229,7 @@ function toIndicators(payload: StatsPayload, syncAlerts: SyncAlertCounts): Dashb
       stops: Number(d.stops),
     })),
     byType,
-    byStatus,
+    composition,
     topOffenders: (payload.top_offenders ?? []).map((row) => ({
       id: row.id,
       fullName: row.full_name,
@@ -263,15 +244,13 @@ function toIndicators(payload: StatsPayload, syncAlerts: SyncAlertCounts): Dashb
       incidentsCreated: Number(row.incidents_created ?? 0),
       stopsCreated: Number(row.stops_created ?? 0),
     })),
-    staleIncidents: (payload.stale_incidents ?? []).map((row) => ({
+    recentIncidents: (payload.recent_incidents ?? []).map((row) => ({
       id: row.id,
       internalNumber: row.internal_number,
       type: row.type,
       typeLabel: INCIDENT_TYPE_LABELS[row.type] ?? row.type,
-      status: row.status as IncidentStatus,
       occurredAt: row.occurred_at,
       agentName: row.agent_name,
-      daysOpen: Number(row.days_open ?? 0),
     })),
     syncAlerts,
     isMock: false,
@@ -296,6 +275,7 @@ export async function fetchDashboardIndicators(
   filters: IndicatorFilters,
 ): Promise<DashboardIndicators> {
   const { start, end } = resolveRange(filters)
+  const rangeDays = Math.max(differenceInCalendarDays(end, start) + 1, 1)
   const syncAlerts = await readSyncAlerts()
 
   const { data, error } = await untyped().rpc('dashboard_stats', {
@@ -315,7 +295,7 @@ export async function fetchDashboardIndicators(
     return { ...buildMockIndicators(filters), syncAlerts }
   }
 
-  return toIndicators(payload, syncAlerts)
+  return toIndicators(payload, syncAlerts, rangeDays)
 }
 
 // ---------------------------------------------------------------------------
@@ -350,11 +330,10 @@ export function buildIndicatorsCsv(
       ['Indicador', 'Valor'],
       [
         ['Total de ocorrências', k.totalIncidents],
-        ['Pendentes (aberta + em andamento)', k.pending],
-        ['Encerradas', k.closed],
         ['Total de abordagens', k.totalStops],
-        ['Flagrantes registrados', k.flagrante],
-        ['Taxa de encerramento (%)', k.closureRate],
+        ['Flagrantes registrados (ocorrências + abordagens)', k.flagrante],
+        ['Ocorrências em flagrante', k.flagranteIncidents],
+        ['Média de ocorrências/dia', k.avgIncidentsPerDay],
       ],
     ),
     '',
@@ -365,9 +344,9 @@ export function buildIndicatorsCsv(
     ),
     '',
     csvSection(
-      'Status atual',
-      ['Status', 'Quantidade'],
-      data.byStatus.map((s) => [s.label, s.count]),
+      'Composição de registros',
+      ['Categoria', 'Quantidade'],
+      data.composition.map((c) => [c.label, c.count]),
     ),
     '',
     csvSection(
@@ -399,14 +378,13 @@ export function buildIndicatorsCsv(
     ),
     '',
     csvSection(
-      'Ocorrências sem encerramento > 7 dias',
-      ['Número', 'Tipo', 'Data', 'Agente', 'Dias em aberto'],
-      data.staleIncidents.map((s) => [
+      'Últimas ocorrências',
+      ['Número', 'Tipo', 'Data', 'Agente'],
+      data.recentIncidents.map((s) => [
         s.internalNumber ?? s.id.slice(0, 8),
         s.typeLabel,
         new Date(s.occurredAt).toLocaleString('pt-BR'),
         s.agentName ?? '—',
-        s.daysOpen,
       ]),
     ),
     '',

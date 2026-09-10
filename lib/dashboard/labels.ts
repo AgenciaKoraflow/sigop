@@ -1,4 +1,4 @@
-import type { IncidentStatus, SyncStatus } from '@/types/app.types'
+import type { SyncStatus } from '@/types/app.types'
 
 /** Portuguese display copy for the dashboard. Keys stay aligned with the schema. */
 
@@ -14,13 +14,6 @@ export const INCIDENT_TYPE_LABELS: Record<string, string> = {
 export const STOP_TYPE_LABELS: Record<string, string> = {
   stop: 'Abordagem',
   in_flagrante: 'Flagrante',
-}
-
-export const STATUS_LABELS: Record<IncidentStatus, string> = {
-  open: 'Aberta',
-  in_progress: 'Em andamento',
-  closed: 'Encerrada',
-  archived: 'Arquivada',
 }
 
 export const SYNC_LABELS: Record<SyncStatus, string> = {

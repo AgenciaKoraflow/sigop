@@ -15,13 +15,13 @@ import { ExportMenu } from './indicators/ExportMenu'
 import { SyncAlertBanners } from './indicators/SyncAlertBanners'
 import { IndicatorKpiCards } from './indicators/IndicatorKpiCards'
 import {
-  StatusDonutChart,
+  CompositionDonutChart,
   TypeDistributionChart,
   VolumeChart,
 } from './indicators/IndicatorCharts'
 import {
   AgentProductivityTable,
-  StaleIncidentsTable,
+  RecentIncidentsTable,
   TopOffendersTable,
 } from './indicators/IndicatorTables'
 
@@ -116,13 +116,13 @@ export function OperationalDashboard() {
 
           <div className="grid gap-4 lg:grid-cols-2">
             <TypeDistributionChart data={data.byType} />
-            <StatusDonutChart data={data.byStatus} />
+            <CompositionDonutChart data={data.composition} />
           </div>
 
           <div className="space-y-4">
             <TopOffendersTable rows={data.topOffenders} />
             <AgentProductivityTable rows={data.agentProductivity} />
-            <StaleIncidentsTable rows={data.staleIncidents} />
+            <RecentIncidentsTable rows={data.recentIncidents} />
           </div>
         </>
       )}

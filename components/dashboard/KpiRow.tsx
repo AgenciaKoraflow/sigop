@@ -1,4 +1,10 @@
-import { CheckCircle, FileText, Play, UserCheck, type LucideIcon } from 'lucide-react'
+import {
+  AlertTriangle,
+  CalendarClock,
+  FileText,
+  UserCheck,
+  type LucideIcon,
+} from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -21,18 +27,18 @@ const KPIS: KpiDef[] = [
     iconWrap: 'bg-kpi-total-bg text-kpi-total-icon',
   },
   {
-    key: 'inProgress',
-    label: 'Em andamento',
-    description: 'Ocorrências ativas agora',
-    icon: Play,
+    key: 'today',
+    label: 'Registradas hoje',
+    description: 'Ocorrências de hoje',
+    icon: CalendarClock,
     iconWrap: 'bg-kpi-running-bg text-kpi-running-icon',
   },
   {
-    key: 'closed',
-    label: 'Encerradas',
-    description: 'Últimos 30 dias',
-    icon: CheckCircle,
-    iconWrap: 'bg-kpi-done-bg text-kpi-done-icon',
+    key: 'flagrante',
+    label: 'Flagrantes',
+    description: 'Ocorrências + abordagens · 30 dias',
+    icon: AlertTriangle,
+    iconWrap: 'bg-kpi-backlog-bg text-kpi-backlog-icon',
   },
   {
     key: 'stops',

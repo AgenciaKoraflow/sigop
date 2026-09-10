@@ -2,10 +2,9 @@
 
 import {
   AlertTriangle,
-  CheckCircle,
-  Clock,
+  CalendarRange,
   FileText,
-  Target,
+  Flame,
   UserCheck,
   type LucideIcon,
 } from 'lucide-react'
@@ -32,20 +31,6 @@ const CARDS: CardDef[] = [
     iconWrap: 'bg-kpi-total-bg text-kpi-total-icon',
   },
   {
-    key: 'pending',
-    label: 'Pendentes',
-    hint: 'Aberta + em andamento',
-    icon: Clock,
-    iconWrap: 'bg-kpi-pending-bg text-kpi-pending-icon',
-  },
-  {
-    key: 'closed',
-    label: 'Encerradas',
-    hint: 'No período',
-    icon: CheckCircle,
-    iconWrap: 'bg-kpi-done-bg text-kpi-done-icon',
-  },
-  {
     key: 'totalStops',
     label: 'Total de abordagens',
     hint: 'No período',
@@ -60,12 +45,18 @@ const CARDS: CardDef[] = [
     iconWrap: 'bg-kpi-backlog-bg text-kpi-backlog-icon',
   },
   {
-    key: 'closureRate',
-    label: 'Taxa de encerramento',
-    hint: 'Encerradas / total',
-    icon: Target,
+    key: 'flagranteIncidents',
+    label: 'Ocorrências em flagrante',
+    hint: 'No período',
+    icon: Flame,
+    iconWrap: 'bg-kpi-pending-bg text-kpi-pending-icon',
+  },
+  {
+    key: 'avgIncidentsPerDay',
+    label: 'Média de ocorrências/dia',
+    hint: 'No período',
+    icon: CalendarRange,
     iconWrap: 'bg-kpi-sla-bg text-kpi-sla-icon',
-    suffix: '%',
   },
 ]
 

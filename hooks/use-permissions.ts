@@ -16,8 +16,6 @@ interface Permissions {
   isAdmin: boolean
   canCreateIncident: boolean
   canEditIncident: boolean
-  canCloseIncident: boolean
-  canArchive: boolean
   canDelete: boolean
   canCreateStop: boolean
   canViewDashboard: boolean
@@ -33,8 +31,6 @@ const PERMISSIONS_BY_ROLE: Record<UserRole, RolePermissions> = {
   agent: {
     canCreateIncident:   true,
     canEditIncident:     true,
-    canCloseIncident:    false,
-    canArchive:          false,
     canDelete:           false,
     canCreateStop:       true,
     canViewDashboard:    false,
@@ -46,8 +42,6 @@ const PERMISSIONS_BY_ROLE: Record<UserRole, RolePermissions> = {
   supervisor: {
     canCreateIncident:   true,
     canEditIncident:     true,
-    canCloseIncident:    true,
-    canArchive:          false,
     canDelete:           false,
     canCreateStop:       true,
     canViewDashboard:    true,
@@ -59,8 +53,6 @@ const PERMISSIONS_BY_ROLE: Record<UserRole, RolePermissions> = {
   administrator: {
     canCreateIncident:   true,
     canEditIncident:     true,
-    canCloseIncident:    true,
-    canArchive:          true,
     canDelete:           true,
     canCreateStop:       true,
     canViewDashboard:    true,

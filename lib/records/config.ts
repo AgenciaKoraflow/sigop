@@ -1,7 +1,6 @@
 import type { SyncStatus } from '@/types/app.types'
 import {
   INCIDENT_TYPE_LABELS,
-  STATUS_LABELS,
   STOP_TYPE_LABELS,
 } from '@/lib/dashboard/labels'
 
@@ -41,7 +40,7 @@ export interface RecordListItem {
   internalNumber: string
   /** `incidents.type` / `stops.type`. */
   type: string
-  /** `incidents.status` or `stops.outcome` — the second badge column. */
+  /** `stops.outcome` — the second badge column. `null` for incidents. */
   secondary: string | null
   description: string
   street: string | null
@@ -62,7 +61,7 @@ export interface RecordFilters {
   customFrom?: string
   customTo?: string
   type?: string
-  /** Status (incidents) / outcome (stops). */
+  /** Outcome (stops only). */
   secondary?: string
   sort: { column: SortColumn; direction: SortDirection }
   page: number
@@ -83,7 +82,10 @@ export interface RecordConfig {
   searchPlaceholder: string
   table: 'incidents' | 'stops'
   dateColumn: 'occurred_at' | 'stopped_at'
-  secondaryColumn: 'status' | 'outcome'
+  /** Second badge column: `outcome` for stops. `null` when the variant has none. */
+  secondaryColumn: 'outcome' | null
+  /** Whether this variant shows/filters/sorts the secondary badge column. */
+  hasSecondary: boolean
   hasInternalNumber: boolean
   selectColumns: string
   searchColumns: string[]
@@ -111,15 +113,16 @@ export const RECORD_CONFIG: Record<RecordVariant, RecordConfig> = {
     searchPlaceholder: 'Buscar por número interno, descrição ou bairro',
     table: 'incidents',
     dateColumn: 'occurred_at',
-    secondaryColumn: 'status',
+    secondaryColumn: null,
+    hasSecondary: false,
     hasInternalNumber: true,
     selectColumns:
-      'id,internal_number,type,status,description,address_street,address_district,address_city,occurred_at',
+      'id,internal_number,type,description,address_street,address_district,address_city,occurred_at',
     searchColumns: ['internal_number', 'description', 'address_district'],
     sortColumnMap: {
       internalNumber: 'internal_number',
       type: 'type',
-      secondary: 'status',
+      secondary: 'occurred_at',
       date: 'occurred_at',
       address: 'address_district',
     },
@@ -133,13 +136,8 @@ export const RECORD_CONFIG: Record<RecordVariant, RecordConfig> = {
       'other',
     ]),
     secondaryFilterLabel: 'Status',
-    secondaryLabels: STATUS_LABELS,
-    secondaryOptions: toOptions(STATUS_LABELS, [
-      'open',
-      'in_progress',
-      'closed',
-      'archived',
-    ]),
+    secondaryLabels: {},
+    secondaryOptions: [],
   },
   stop: {
     variant: 'stop',
@@ -152,6 +150,7 @@ export const RECORD_CONFIG: Record<RecordVariant, RecordConfig> = {
     table: 'stops',
     dateColumn: 'stopped_at',
     secondaryColumn: 'outcome',
+    hasSecondary: true,
     hasInternalNumber: false,
     selectColumns:
       'id,type,outcome,description,address_street,address_district,address_city,stopped_at',

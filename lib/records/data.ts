@@ -91,7 +91,6 @@ interface ServerRow {
   id: string
   internal_number?: string | null
   type: string
-  status?: string | null
   outcome?: string | null
   description: string | null
   address_street: string | null
@@ -118,7 +117,7 @@ function rowToItem(
       ? row.internal_number ?? `OC-${shortId(row.id)}`
       : `AB-${shortId(row.id)}`,
     type: row.type,
-    secondary: variant === 'incident' ? row.status ?? null : row.outcome ?? null,
+    secondary: cfg.hasSecondary ? row.outcome ?? null : null,
     description: row.description ?? '',
     street: row.address_street,
     district: row.address_district,
@@ -145,7 +144,10 @@ function draftToItem(
       ? (p.internal_number as string) ?? `OC-${shortId(draft.id)}`
       : `AB-${shortId(draft.id)}`,
     type: (p.type as string) ?? 'other',
-    secondary: (p[cfg.secondaryColumn] as string) ?? null,
+    secondary:
+      cfg.hasSecondary && cfg.secondaryColumn
+        ? (p[cfg.secondaryColumn] as string) ?? null
+        : null,
     description: (p.description as string) ?? '',
     street: (p.address_street as string | null) ?? null,
     district: (p.address_district as string | null) ?? null,
@@ -164,9 +166,14 @@ const byNewest = (a: RecordListItem, b: RecordListItem) =>
 // ---------------------------------------------------------------------------
 // Local drafts
 // ---------------------------------------------------------------------------
-function draftMatches(item: RecordListItem, filters: RecordFilters): boolean {
+function draftMatches(
+  item: RecordListItem,
+  filters: RecordFilters,
+  cfg: (typeof RECORD_CONFIG)[RecordVariant],
+): boolean {
   if (filters.type && item.type !== filters.type) return false
-  if (filters.secondary && item.secondary !== filters.secondary) return false
+  if (cfg.hasSecondary && filters.secondary && item.secondary !== filters.secondary)
+    return false
 
   const { from, to } = resolvePeriod(filters)
   const t = new Date(item.occurredAt).getTime()
@@ -190,9 +197,10 @@ async function fetchDrafts(
 ): Promise<RecordListItem[]> {
   const drafts =
     variant === 'incident' ? await listDraftIncidents() : await listDraftStops()
+  const cfg = RECORD_CONFIG[variant]
   return drafts
     .map((draft) => draftToItem(variant, draft))
-    .filter((item) => draftMatches(item, filters))
+    .filter((item) => draftMatches(item, filters, cfg))
     .sort(byNewest)
 }
 
@@ -252,7 +260,8 @@ async function fetchServer(
   if (from) query = query.gte(cfg.dateColumn, from)
   if (to) query = query.lte(cfg.dateColumn, to)
   if (filters.type) query = query.eq('type', filters.type)
-  if (filters.secondary) query = query.eq(cfg.secondaryColumn, filters.secondary)
+  if (cfg.hasSecondary && cfg.secondaryColumn && filters.secondary)
+    query = query.eq(cfg.secondaryColumn, filters.secondary)
 
   const term = sanitize(filters.search)
   if (term) {

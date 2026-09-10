@@ -1,4 +1,4 @@
-import type { IncidentStatus, SyncStatus } from '@/types/app.types'
+import type { SyncStatus } from '@/types/app.types'
 
 /** A record shown in the "Atividade recente" feed — an incident or a stop. */
 export type ActivityKind = 'incident' | 'stop'
@@ -10,8 +10,6 @@ export interface ActivityItem {
   internalNumber: string
   /** `incidents.type` or `stops.type`. */
   entityType: string
-  /** Operational status — incidents only; `null` for stops. */
-  status: IncidentStatus | null
   street: string | null
   district: string | null
   city: string | null
@@ -26,10 +24,10 @@ export interface ActivityItem {
 export interface DashboardKpis {
   /** Incidents in the last 30 days. */
   totalIncidents: number
-  /** Incidents currently `in_progress`. */
-  inProgress: number
-  /** Incidents `closed` in the last 30 days. */
-  closed: number
+  /** Incidents registered today. */
+  today: number
+  /** Flagrant records (incidents + stops) in the last 30 days. */
+  flagrante: number
   /** Stops in the last 30 days. */
   stops: number
 }

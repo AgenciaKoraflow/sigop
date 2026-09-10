@@ -3,9 +3,7 @@
 import Link from 'next/link'
 import { format, formatDistanceToNow, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { cn } from '@/lib/utils/cn'
 import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -14,10 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { STATUS_LABELS } from '@/lib/dashboard/labels'
 import type {
   AgentProductivityRow,
-  StaleIncidentRow,
+  RecentIncidentRow,
   TopOffenderRow,
 } from '@/lib/dashboard/indicators'
 
@@ -142,13 +139,13 @@ export function AgentProductivityTable({ rows }: { rows: AgentProductivityRow[] 
 }
 
 // ---------------------------------------------------------------------------
-// Ocorrências sem encerramento > 7 dias
+// Últimas ocorrências
 // ---------------------------------------------------------------------------
-export function StaleIncidentsTable({ rows }: { rows: StaleIncidentRow[] }) {
+export function RecentIncidentsTable({ rows }: { rows: RecentIncidentRow[] }) {
   return (
     <TableCard
-      title="Ocorrências sem encerramento > 7 dias"
-      subtitle={`${rows.length} ${rows.length === 1 ? 'ocorrência' : 'ocorrências'} em aberto há mais de uma semana`}
+      title="Últimas ocorrências"
+      subtitle="Registros mais recentes no período"
     >
       <Table>
         <TableHeader>
@@ -157,15 +154,14 @@ export function StaleIncidentsTable({ rows }: { rows: StaleIncidentRow[] }) {
             <TableHead>Tipo</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Agente</TableHead>
-            <TableHead className="text-right">Dias em aberto</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.length === 0 ? (
-            <EmptyRow colSpan={5} label="Nenhuma ocorrência atrasada 🎉" />
+            <EmptyRow colSpan={4} label="Nenhuma ocorrência no período" />
           ) : (
             rows.map((row) => (
-              <TableRow key={row.id} className="bg-amber-50 hover:bg-amber-100/70">
+              <TableRow key={row.id}>
                 <TableCell className="font-mono text-sm font-medium text-ink">
                   {row.id.startsWith('demo-') ? (
                     row.internalNumber ?? row.id.slice(0, 8)
@@ -181,22 +177,10 @@ export function StaleIncidentsTable({ rows }: { rows: StaleIncidentRow[] }) {
                 <TableCell className="text-ink-secondary">
                   {format(parseISO(row.occurredAt), 'dd/MM/yyyy', { locale: ptBR })}
                   <span className="ml-1 text-xs text-ink-muted">
-                    ({formatDistanceToNow(parseISO(row.occurredAt), { locale: ptBR })})
+                    ({formatDistanceToNow(parseISO(row.occurredAt), { locale: ptBR, addSuffix: true })})
                   </span>
                 </TableCell>
                 <TableCell className="text-ink-secondary">{row.agentName ?? '—'}</TableCell>
-                <TableCell className="text-right">
-                  <Badge
-                    variant={row.status === 'in_progress' ? 'in_progress' : 'open'}
-                    className={cn(
-                      'font-mono tabular-nums',
-                      row.daysOpen >= 15 && 'bg-status-in-flagrante-bg text-status-in-flagrante-text',
-                    )}
-                    title={STATUS_LABELS[row.status]}
-                  >
-                    {row.daysOpen}d
-                  </Badge>
-                </TableCell>
               </TableRow>
             ))
           )}

@@ -43,11 +43,13 @@ export function RecordsTable({ cfg, items, loading, sort, onToggleSort }: Props)
     { key: null, label: 'Foto' },
     { key: cfg.hasInternalNumber ? 'internalNumber' : null, label: 'Número interno' },
     { key: 'type', label: 'Tipo' },
-    { key: 'secondary', label: cfg.secondaryFilterLabel },
+    ...(cfg.hasSecondary
+      ? [{ key: 'secondary' as SortColumn, label: cfg.secondaryFilterLabel }]
+      : []),
     { key: 'date', label: 'Data e hora' },
     { key: 'address', label: 'Endereço' },
     { key: null, label: 'Sync' },
-    { key: null, label: 'Ações', align: 'right' },
+    { key: null, label: 'Ações', align: 'right' as const },
   ]
 
   return (
@@ -99,6 +101,7 @@ export function RecordsTable({ cfg, items, loading, sort, onToggleSort }: Props)
               <RecordRow
                 key={`${item.variant}-${item.id}`}
                 item={item}
+                showSecondary={cfg.hasSecondary}
                 onOpen={() => router.push(item.href)}
               />
             ))
@@ -111,9 +114,11 @@ export function RecordsTable({ cfg, items, loading, sort, onToggleSort }: Props)
 
 function RecordRow({
   item,
+  showSecondary,
   onOpen,
 }: {
   item: RecordListItem
+  showSecondary: boolean
   onOpen: () => void
 }) {
   const place =
@@ -164,9 +169,11 @@ function RecordRow({
         </span>
       </TableCell>
 
-      <TableCell>
-        <SecondaryBadge variant={item.variant} value={item.secondary} />
-      </TableCell>
+      {showSecondary && (
+        <TableCell>
+          <SecondaryBadge variant={item.variant} value={item.secondary} />
+        </TableCell>
+      )}
 
       <TableCell className="whitespace-nowrap text-sm text-ink-secondary">
         {formatDateTime(item.occurredAt)}
