@@ -15,11 +15,7 @@ import { useToast } from '@/hooks/use-toast'
 import { compressImage, createPreviewURL, revokePreviewURL } from '@/lib/fotos/compress'
 import { getOffenderDetail } from '@/lib/meliantes/data'
 import {
-  EYE_COLOR_OPTIONS,
-  GENDER_OPTIONS,
-  HAIR_COLOR_OPTIONS,
   MAX_PHOTOS_PER_OFFENDER,
-  SKIN_COLOR_OPTIONS,
   emptyOffenderForm,
   maskCpf,
   offenderDisplayName,
@@ -29,18 +25,7 @@ import {
 } from '@/lib/meliantes/form'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import {
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Separator,
-  Textarea,
-} from '@/components/ui'
+import { Button, Input, Label, Separator } from '@/components/ui'
 
 export interface FormMelianteProps {
   mode: 'create' | 'edit'
@@ -288,7 +273,7 @@ export function FormMeliante({
           {mode === 'create' ? 'Novo meliante' : 'Editar meliante'}
         </h1>
         <p className="text-sm text-ink-secondary">
-          Preencha os dados de identificação e características físicas.
+          Preencha os dados de identificação do meliante.
         </p>
         {loadError && (
           <p className="mt-2 flex items-center gap-2 rounded-input border border-sync-pending-text/20 bg-sync-pending-bg px-3 py-2 text-xs font-medium text-sync-pending-text">
@@ -342,52 +327,9 @@ export function FormMeliante({
 
       <Separator />
 
-      {/* SEÇÃO 2 — Características físicas --------------------------------- */}
+      {/* SEÇÃO 2 — Foto -------------------------------------------------- */}
       <section className="space-y-4">
-        <SectionTitle index={2}>Características físicas</SectionTitle>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Gênero">
-            <SelectField control={control} name="gender" options={GENDER_OPTIONS} />
-          </Field>
-          <Field label="Altura (m)" hint="Ex.: 1.75">
-            <Input inputMode="decimal" placeholder="1.75" {...register('height_m')} />
-          </Field>
-          <Field label="Peso (kg)" hint="Ex.: 72">
-            <Input inputMode="decimal" placeholder="72" {...register('weight_kg')} />
-          </Field>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Cor de pele">
-            <SelectField control={control} name="skin_color" options={SKIN_COLOR_OPTIONS} />
-          </Field>
-          <Field label="Cor dos olhos">
-            <SelectField control={control} name="eye_color" options={EYE_COLOR_OPTIONS} />
-          </Field>
-          <Field label="Cor do cabelo">
-            <SelectField control={control} name="hair_color" options={HAIR_COLOR_OPTIONS} />
-          </Field>
-        </div>
-
-        <Field label="Sinais particulares" hint="Tatuagens, cicatrizes, marcas de nascença…">
-          <Textarea rows={3} {...register('distinguishing_marks')} />
-        </Field>
-
-        <Field label="Descrição física livre">
-          <Textarea
-            rows={3}
-            placeholder="Compleição, estilo de barba/cabelo, forma de andar, vestimenta habitual…"
-            {...register('physical_description')}
-          />
-        </Field>
-      </section>
-
-      <Separator />
-
-      {/* SEÇÃO 3 — Foto -------------------------------------------------- */}
-      <section className="space-y-4">
-        <SectionTitle index={3}>Foto</SectionTitle>
+        <SectionTitle index={2}>Foto</SectionTitle>
 
         <div className="space-y-2">
           <Label>Foto principal</Label>
@@ -524,36 +466,5 @@ function Field({
         <p className="text-xs text-ink-secondary">{hint}</p>
       ) : null}
     </div>
-  )
-}
-
-function SelectField({
-  control,
-  name,
-  options,
-}: {
-  control: import('react-hook-form').Control<OffenderFormValues>
-  name: keyof OffenderFormValues
-  options: { value: string; label: string }[]
-}) {
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field }) => (
-        <Select value={field.value || undefined} onValueChange={field.onChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione" />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-    />
   )
 }

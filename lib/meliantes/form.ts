@@ -104,14 +104,6 @@ export const offenderFormSchema = z.object({
       if (Number.isNaN(when)) return false
       return when <= Date.now()
     }, 'A data de nascimento não pode estar no futuro'),
-  gender: optionalText,
-  height_m: optionalText,
-  weight_kg: optionalText,
-  skin_color: optionalText,
-  eye_color: optionalText,
-  hair_color: optionalText,
-  distinguishing_marks: optionalText,
-  physical_description: optionalText,
 })
 
 export type OffenderFormValues = z.infer<typeof offenderFormSchema>
@@ -126,14 +118,6 @@ export const emptyOffenderForm = (): OffenderFormValues => ({
   cpf: '',
   rg: '',
   birth_date: '',
-  gender: '',
-  height_m: '',
-  weight_kg: '',
-  skin_color: '',
-  eye_color: '',
-  hair_color: '',
-  distinguishing_marks: '',
-  physical_description: '',
 })
 
 // ---------------------------------------------------------------------------
@@ -142,13 +126,6 @@ export const emptyOffenderForm = (): OffenderFormValues => ({
 const nullIfEmpty = (value: string | undefined | null) => {
   const trimmed = (value ?? '').trim()
   return trimmed.length > 0 ? trimmed : null
-}
-
-const toNumberOrNull = (value: string | undefined | null) => {
-  const trimmed = (value ?? '').trim().replace(',', '.')
-  if (!trimmed) return null
-  const parsed = Number(trimmed)
-  return Number.isFinite(parsed) ? parsed : null
 }
 
 /** Row payload for the `offenders` table (sync queue). */
@@ -166,14 +143,6 @@ export function toOffenderPayload(
     cpf: nullIfEmpty(values.cpf),
     rg: nullIfEmpty(values.rg),
     birth_date: nullIfEmpty(values.birth_date),
-    gender: nullIfEmpty(values.gender),
-    height_m: toNumberOrNull(values.height_m),
-    weight_kg: toNumberOrNull(values.weight_kg),
-    skin_color: nullIfEmpty(values.skin_color),
-    eye_color: nullIfEmpty(values.eye_color),
-    hair_color: nullIfEmpty(values.hair_color),
-    distinguishing_marks: nullIfEmpty(values.distinguishing_marks),
-    physical_description: nullIfEmpty(values.physical_description),
   }
 
   if (operation === 'create') {
@@ -198,14 +167,6 @@ export function fromOffenderPayload(payload: Record<string, unknown>): OffenderF
     cpf: str('cpf'),
     rg: str('rg'),
     birth_date: str('birth_date').slice(0, 10),
-    gender: str('gender'),
-    height_m: str('height_m'),
-    weight_kg: str('weight_kg'),
-    skin_color: str('skin_color'),
-    eye_color: str('eye_color'),
-    hair_color: str('hair_color'),
-    distinguishing_marks: str('distinguishing_marks'),
-    physical_description: str('physical_description'),
   }
 }
 

@@ -13,10 +13,7 @@ import {
   getOffenderDetail,
   type OffenderDetail,
 } from '@/lib/meliantes/data'
-import {
-  characteristicLabel,
-  offenderDisplayName,
-} from '@/lib/meliantes/form'
+import { offenderDisplayName } from '@/lib/meliantes/form'
 import { stopOutcomeLabel } from '@/lib/abordagens/form'
 import { offenderRoleLabel } from '@/lib/ocorrencias/form'
 import {
@@ -173,35 +170,6 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
           <Detail label="CPF" value={offender.cpf} mono />
           <Detail label="RG" value={offender.rg} mono />
           <Detail label="Data de nascimento" value={fmtDay(offender.birth_date)} />
-        </dl>
-      </section>
-
-      {/* Características físicas -------------------------------------- */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-ink">Características físicas</h2>
-        <dl className="grid gap-x-6 gap-y-3 rounded-card border border-content-border bg-white p-4 sm:grid-cols-2">
-          <Detail label="Gênero" value={characteristicLabel('gender', offender.gender)} />
-          <Detail
-            label="Altura"
-            value={offender.height_m != null ? `${offender.height_m} m` : null}
-          />
-          <Detail
-            label="Peso"
-            value={offender.weight_kg != null ? `${offender.weight_kg} kg` : null}
-          />
-          <Detail label="Cor de pele" value={characteristicLabel('skin_color', offender.skin_color)} />
-          <Detail label="Cor dos olhos" value={characteristicLabel('eye_color', offender.eye_color)} />
-          <Detail label="Cor do cabelo" value={characteristicLabel('hair_color', offender.hair_color)} />
-          <Detail
-            label="Sinais particulares"
-            value={offender.distinguishing_marks}
-            className="sm:col-span-2"
-          />
-          <Detail
-            label="Descrição física"
-            value={offender.physical_description}
-            className="sm:col-span-2"
-          />
         </dl>
       </section>
 
