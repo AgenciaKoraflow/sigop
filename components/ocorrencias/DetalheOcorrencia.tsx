@@ -37,6 +37,7 @@ import {
   offendersSettingKey,
   offenderRoleLabel,
 } from '@/lib/ocorrencias/form'
+import { getMunicipalityName, getTerritorialAreaName } from '@/lib/ocorrencias/data'
 import {
   INCIDENT_TYPE_LABELS,
   STATUS_LABELS,
@@ -121,6 +122,10 @@ interface IncidentScalar {
   latitude: number | null
   longitude: number | null
   gmaps_link: string | null
+  municipality_id: string | null
+  territorial_area_id: string | null
+  municipality_name: string | null
+  territorial_area_name: string | null
   created_at: string | null
   updated_at: string | null
 }
@@ -194,6 +199,8 @@ const IGNORED_DIFF_KEYS = new Set([
   'created_by',
   'updated_by',
   'unit_id',
+  'municipality_id',
+  'territorial_area_id',
 ])
 
 function summarizeChanges(prev: unknown, next: unknown): AuditChange[] {
@@ -244,6 +251,10 @@ function toIncidentScalar(id: string, row: Record<string, unknown>): IncidentSca
     latitude: num('latitude'),
     longitude: num('longitude'),
     gmaps_link: str('gmaps_link'),
+    municipality_id: str('municipality_id'),
+    territorial_area_id: str('territorial_area_id'),
+    municipality_name: null,
+    territorial_area_name: null,
     created_at: str('created_at'),
     updated_at: str('updated_at'),
   }
@@ -446,6 +457,25 @@ async function loadIncidentDetail(
   }
   const incident = toIncidentScalar(id, merged)
 
+  // Resolve the operational-geography names (município / AT). Requires the
+  // network — offline the raw ids are all we have, so the labels stay blank.
+  if (isOnline) {
+    try {
+      const [municipalityName, territorialAreaName] = await Promise.all([
+        incident.municipality_id
+          ? getMunicipalityName(incident.municipality_id)
+          : Promise.resolve(null),
+        incident.territorial_area_id
+          ? getTerritorialAreaName(incident.territorial_area_id)
+          : Promise.resolve(null),
+      ])
+      incident.municipality_name = municipalityName
+      incident.territorial_area_name = territorialAreaName
+    } catch {
+      /* lookup failed — leave the labels blank */
+    }
+  }
+
   // Local draft: recover the offender links stored alongside the draft.
   if (effectiveDraft && offenders.length === 0) {
     try {
@@ -546,6 +576,8 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
           latitude: inc.latitude,
           longitude: inc.longitude,
           gmaps_link: inc.gmaps_link,
+          municipality_id: inc.municipality_id,
+          territorial_area_id: inc.territorial_area_id,
         }
         if (user?.id) payload.updated_by = user.id
 
@@ -795,6 +827,8 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
             }
           />
           <Detail label="Registrada em" value={fmtDateTime(incident.created_at)} />
+          <Detail label="Município" value={incident.municipality_name} />
+          <Detail label="Área Territorial (AT)" value={incident.territorial_area_name} />
           <Detail
             label="Descrição"
             value={incident.description}

@@ -52,6 +52,12 @@ import {
   type LinkedOffender,
   type OffenderRole,
 } from '@/lib/ocorrencias/form'
+import {
+  listMunicipalities,
+  listTerritorialAreas,
+  type MunicipalityOption,
+  type TerritorialAreaOption,
+} from '@/lib/ocorrencias/data'
 import type { SyncStatus } from '@/types/app.types'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -87,6 +93,9 @@ function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
+
+/** Sentinel for the optional geography selects — shadcn `SelectItem` rejects "". */
+const NO_GEO = '__none__'
 
 function untyped(): SupabaseClient {
   return createClient() as unknown as SupabaseClient
@@ -130,6 +139,10 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
   const [pendingRemove, setPendingRemove] = React.useState<string | null>(null)
 
+  // Operational geography (município → AT). Both optional.
+  const [municipalities, setMunicipalities] = React.useState<MunicipalityOption[]>([])
+  const [territorialAreas, setTerritorialAreas] = React.useState<TerritorialAreaOption[]>([])
+
   // CEP
   const [cepLoading, setCepLoading] = React.useState(false)
   const [cepError, setCepError] = React.useState<string | null>(null)
@@ -150,6 +163,31 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
   const longitude = watch('longitude')
   const typeValue = watch('type')
   const description = watch('description') ?? ''
+  const municipalityId = watch('municipality_id') ?? ''
+  const territorialAreaId = watch('territorial_area_id') ?? ''
+
+  const areasForMunicipality = React.useMemo(
+    () => territorialAreas.filter((area) => area.municipalityId === municipalityId),
+    [territorialAreas, municipalityId],
+  )
+
+  // Load the geography lookups once.
+  React.useEffect(() => {
+    listMunicipalities()
+      .then(setMunicipalities)
+      .catch(() => setMunicipalities([]))
+    listTerritorialAreas()
+      .then(setTerritorialAreas)
+      .catch(() => setTerritorialAreas([]))
+  }, [])
+
+  // Drop the AT when it no longer belongs to the selected município.
+  React.useEffect(() => {
+    if (!territorialAreaId) return
+    if (!areasForMunicipality.some((area) => area.id === territorialAreaId)) {
+      setValue('territorial_area_id', '', { shouldDirty: true })
+    }
+  }, [areasForMunicipality, territorialAreaId, setValue])
 
   // -------------------------------------------------------------------------
   // Load existing incident (edit mode)
@@ -611,6 +649,73 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
             {locationError}
           </p>
         )}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Município">
+            <Controller
+              control={control}
+              name="municipality_id"
+              render={({ field }) => (
+                <Select
+                  value={field.value || NO_GEO}
+                  onValueChange={(value) =>
+                    field.onChange(value === NO_GEO ? '' : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o município" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_GEO}>Não informado</SelectItem>
+                    {municipalities.map((municipality) => (
+                      <SelectItem key={municipality.id} value={municipality.id}>
+                        {municipality.name}
+                        {municipality.state ? ` · ${municipality.state}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+
+          <Field
+            label="Área Territorial (AT)"
+            hint={
+              !municipalityId
+                ? 'Selecione o município primeiro'
+                : areasForMunicipality.length === 0
+                  ? 'Nenhuma AT cadastrada para este município'
+                  : undefined
+            }
+          >
+            <Controller
+              control={control}
+              name="territorial_area_id"
+              render={({ field }) => (
+                <Select
+                  value={field.value || NO_GEO}
+                  onValueChange={(value) =>
+                    field.onChange(value === NO_GEO ? '' : value)
+                  }
+                  disabled={!municipalityId || areasForMunicipality.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a AT" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_GEO}>Não informada</SelectItem>
+                    {areasForMunicipality.map((area) => (
+                      <SelectItem key={area.id} value={area.id}>
+                        {area.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        </div>
 
         <Tabs defaultValue="address">
           <TabsList className="grid w-full grid-cols-2">

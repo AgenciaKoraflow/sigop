@@ -83,6 +83,9 @@ export const incidentFormSchema = z
     gmaps_link: optionalText,
     latitude: z.number().nullable(),
     longitude: z.number().nullable(),
+    /** Operational geography — both optional. AT belongs to the município. */
+    municipality_id: optionalText,
+    territorial_area_id: optionalText,
   })
   .refine(
     (data) => {
@@ -150,6 +153,8 @@ export const emptyIncidentForm = (): IncidentFormValues => ({
   gmaps_link: '',
   latitude: null,
   longitude: null,
+  municipality_id: '',
+  territorial_area_id: '',
 })
 
 const nullIfEmpty = (value: string | undefined | null) => {
@@ -179,6 +184,8 @@ export function toIncidentPayload(
     latitude: values.latitude,
     longitude: values.longitude,
     gmaps_link: nullIfEmpty(values.gmaps_link),
+    municipality_id: nullIfEmpty(values.municipality_id),
+    territorial_area_id: nullIfEmpty(values.territorial_area_id),
     ...(createdBy ? { created_by: createdBy } : {}),
   }
 }
@@ -208,6 +215,8 @@ export function fromIncidentPayload(payload: Record<string, unknown>): IncidentF
     gmaps_link: str('gmaps_link'),
     latitude: num('latitude'),
     longitude: num('longitude'),
+    municipality_id: str('municipality_id'),
+    territorial_area_id: str('territorial_area_id'),
   }
 }
 

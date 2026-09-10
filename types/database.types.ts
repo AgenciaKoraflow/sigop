@@ -133,10 +133,12 @@ export type Database = {
           internal_number: string | null
           latitude: number | null
           longitude: number | null
+          municipality_id: string | null
           occurred_at: string
           status: string
           subtype: string | null
           synced_at: string | null
+          territorial_area_id: string | null
           type: string
           unit_id: string | null
           updated_at: string | null
@@ -159,10 +161,12 @@ export type Database = {
           internal_number?: string | null
           latitude?: number | null
           longitude?: number | null
+          municipality_id?: string | null
           occurred_at: string
           status?: string
           subtype?: string | null
           synced_at?: string | null
+          territorial_area_id?: string | null
           type: string
           unit_id?: string | null
           updated_at?: string | null
@@ -185,10 +189,12 @@ export type Database = {
           internal_number?: string | null
           latitude?: number | null
           longitude?: number | null
+          municipality_id?: string | null
           occurred_at?: string
           status?: string
           subtype?: string | null
           synced_at?: string | null
+          territorial_area_id?: string | null
           type?: string
           unit_id?: string | null
           updated_at?: string | null
@@ -201,6 +207,20 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidents_municipality_id_fkey"
+            columns: ["municipality_id"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidents_territorial_area_id_fkey"
+            columns: ["territorial_area_id"]
+            isOneToOne: false
+            referencedRelation: "territorial_areas"
             referencedColumns: ["id"]
           },
           {
@@ -218,6 +238,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      municipalities: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          state: string | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          state?: string | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          state?: string | null
+        }
+        Relationships: []
       }
       offenders: {
         Row: {
@@ -540,6 +587,41 @@ export type Database = {
           },
         ]
       }
+      territorial_areas: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          municipality_id: string
+          name: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          municipality_id: string
+          name: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          municipality_id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "territorial_areas_municipality_id_fkey"
+            columns: ["municipality_id"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       units: {
         Row: {
           code: string | null
@@ -572,6 +654,16 @@ export type Database = {
       dashboard_stats: {
         Args: { p_date_end?: string; p_date_start?: string; p_unit_id?: string }
         Returns: Json
+      }
+      find_offender_by_cpf: {
+        Args: { cpf_input: string }
+        Returns: {
+          cpf: string
+          full_name: string
+          id: string
+          nickname: string
+          social_name: string
+        }[]
       }
       my_role: { Args: never; Returns: string }
       my_unit: { Args: never; Returns: string }
@@ -608,6 +700,20 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      search_offenders_with_stats: {
+        Args: { term: string }
+        Returns: {
+          cpf: string
+          full_name: string
+          id: string
+          incident_count: number
+          last_stopped_at: string
+          main_photo_url: string
+          nickname: string
+          social_name: string
+          stop_count: number
+        }[]
+      }
       unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
@@ -627,12 +733,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -656,11 +762,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -681,11 +787,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -706,11 +812,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -723,11 +829,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
