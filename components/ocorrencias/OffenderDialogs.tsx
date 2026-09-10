@@ -20,6 +20,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { initials } from '@/hooks/use-current-user'
+import { PhotoUpload } from '@/components/fotos/PhotoUpload'
+import { deletePendingPhoto, getPhotosByEntity } from '@/lib/db'
+import { MAX_PHOTOS_PER_OFFENDER } from '@/lib/meliantes/form'
 import type { LinkedOffender } from '@/lib/ocorrencias/form'
 
 // ---------------------------------------------------------------------------
@@ -198,32 +201,51 @@ export function CreateOffenderDialog({
   const [physicalDescription, setPhysicalDescription] = React.useState('')
   const [touched, setTouched] = React.useState(false)
 
+  // A stable offender id, minted per dialog opening, so photos captured here can
+  // be attached to the offender before it is persisted. `savedRef` tells the
+  // close handler whether to keep those pending photos or discard them.
+  const [offenderId, setOffenderId] = React.useState(newId)
+  const savedRef = React.useRef(false)
+
+  const discardPendingPhotos = React.useCallback(async (id: string) => {
+    const records = await getPhotosByEntity(id)
+    await Promise.all(records.map((record) => deletePendingPhoto(record.id)))
+  }, [])
+
   React.useEffect(() => {
-    if (!open) {
-      setFullName('')
-      setNickname('')
-      setCpf('')
-      setPhysicalDescription('')
-      setTouched(false)
+    if (open) {
+      setOffenderId(newId())
+      savedRef.current = false
+      return
     }
+    setFullName('')
+    setNickname('')
+    setCpf('')
+    setPhysicalDescription('')
+    setTouched(false)
   }, [open])
 
   const nameInvalid = touched && fullName.trim().length < 3
+
+  function close(nextOpen: boolean) {
+    if (!nextOpen && !savedRef.current) void discardPendingPhotos(offenderId)
+    onOpenChange(nextOpen)
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setTouched(true)
     if (fullName.trim().length < 3) return
 
-    const id = newId()
+    savedRef.current = true
     onCreate({
-      offenderId: id,
+      offenderId,
       fullName: fullName.trim(),
       nickname: nickname.trim() || null,
       photoUrl: null,
       isNew: true,
       draft: {
-        id,
+        id: offenderId,
         full_name: fullName.trim(),
         nickname: nickname.trim() || null,
         cpf: cpf.trim() || null,
@@ -234,7 +256,7 @@ export function CreateOffenderDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Cadastrar novo meliante</DialogTitle>
@@ -292,8 +314,21 @@ export function CreateOffenderDialog({
             />
           </div>
 
+          <div className="space-y-1.5">
+            <Label>Fotos</Label>
+            <PhotoUpload
+              entityId={offenderId}
+              entityType="offender"
+              maxPhotos={MAX_PHOTOS_PER_OFFENDER}
+            />
+            <p className="text-xs text-ink-secondary">
+              As fotos ficam no dispositivo e são enviadas junto com o cadastro na
+              sincronização.
+            </p>
+          </div>
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => close(false)}>
               Cancelar
             </Button>
             <Button type="submit" variant="primary">
