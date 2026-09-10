@@ -106,9 +106,11 @@ function untyped(): SupabaseClient {
 export interface FormOcorrenciaProps {
   mode: 'create' | 'edit'
   incidentId?: string
+  /** Pre-selects "Tipo de ocorrência" when arriving from the quick-actions dropdown. */
+  initialType?: IncidentFormValues['type']
 }
 
-export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
+export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrenciaProps) {
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useCurrentUser()
@@ -120,7 +122,10 @@ export function FormOcorrencia({ mode, incidentId }: FormOcorrenciaProps) {
 
   const form = useForm<IncidentFormValues>({
     resolver: zodResolver(incidentFormSchema),
-    defaultValues: emptyIncidentForm(),
+    defaultValues:
+      mode === 'create' && initialType
+        ? { ...emptyIncidentForm(), type: initialType }
+        : emptyIncidentForm(),
     mode: 'onBlur',
   })
   const { control, register, watch, setValue, getValues, formState } = form
