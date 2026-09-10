@@ -14,7 +14,7 @@ import type { IncidentType, IncidentStatus } from '@/types/app.types'
 // ---------------------------------------------------------------------------
 export const INCIDENT_DESCRIPTION_MIN = 20
 export const INCIDENT_DESCRIPTION_MAX = 2000
-export const MAX_PHOTOS_PER_INCIDENT = 10
+export const MAX_PHOTOS_PER_INCIDENT = 30
 export const AUTOSAVE_DELAY_MS = 30_000
 /** Occurrences may be logged up to 24h ahead (clock skew / scheduled entries). */
 export const FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000

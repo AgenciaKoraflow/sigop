@@ -859,7 +859,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
             <PhotoUpload
               entityId={id}
               entityType="incident"
-              maxPhotos={MAX_PHOTOS_PER_INCIDENT}
+              maxPhotos={Math.max(1, MAX_PHOTOS_PER_INCIDENT - photos.length)}
             />
           </div>
         )}
