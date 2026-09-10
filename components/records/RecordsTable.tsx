@@ -117,7 +117,7 @@ function RecordRow({
   onOpen: () => void
 }) {
   const place =
-    [item.district, item.city].filter(Boolean).join(' · ') || '—'
+    [item.street, item.district, item.city].filter(Boolean).join(' · ') || '—'
 
   return (
     <TableRow

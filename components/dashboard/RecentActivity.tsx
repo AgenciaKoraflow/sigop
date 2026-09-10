@@ -31,7 +31,8 @@ function cutoffFor(range: RangeKey): number {
 
 function ActivityRow({ item }: { item: ActivityItem }) {
   const place =
-    [item.district, item.city].filter(Boolean).join(' · ') || 'Local não informado'
+    [item.street, item.district, item.city].filter(Boolean).join(' · ') ||
+    'Local não informado'
   const relative = formatDistanceToNow(new Date(item.occurredAt), {
     addSuffix: true,
     locale: ptBR,

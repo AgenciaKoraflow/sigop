@@ -12,6 +12,7 @@ export interface ActivityItem {
   entityType: string
   /** Operational status — incidents only; `null` for stops. */
   status: IncidentStatus | null
+  street: string | null
   district: string | null
   city: string | null
   /** `occurred_at` / `stopped_at` (falls back to `created_at`). */

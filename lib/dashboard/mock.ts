@@ -14,6 +14,7 @@ interface Seed {
   internalNumber: string
   entityType: string
   status: ActivityItem['status']
+  street: string
   district: string
   city: string
   ago: number
@@ -21,13 +22,13 @@ interface Seed {
 }
 
 const SEEDS: Seed[] = [
-  { kind: 'incident', internalNumber: 'OC-2026-000042', entityType: 'theft', status: 'in_progress', district: 'Centro', city: 'Sorocaba', ago: 2 * HOUR, syncStatus: null },
-  { kind: 'stop', internalNumber: 'AB-2026-000018', entityType: 'stop', status: null, district: 'Vila Haro', city: 'Sorocaba', ago: 5 * HOUR, syncStatus: 'pending' },
-  { kind: 'incident', internalNumber: 'OC-2026-000041', entityType: 'in_flagrante', status: 'open', district: 'Jardim Europa', city: 'Sorocaba', ago: 9 * HOUR, syncStatus: 'draft' },
-  { kind: 'incident', internalNumber: 'OC-2026-000039', entityType: 'vandalism', status: 'closed', district: 'Éden', city: 'Sorocaba', ago: 1 * DAY + 3 * HOUR, syncStatus: null },
-  { kind: 'stop', internalNumber: 'AB-2026-000015', entityType: 'in_flagrante', status: null, district: 'Além Ponte', city: 'Sorocaba', ago: 3 * DAY, syncStatus: 'synced' },
-  { kind: 'incident', internalNumber: 'OC-2026-000034', entityType: 'robbery', status: 'closed', district: 'Santa Rosália', city: 'Sorocaba', ago: 8 * DAY, syncStatus: null },
-  { kind: 'incident', internalNumber: 'OC-2026-000028', entityType: 'suspicious', status: 'archived', district: 'Aparecidinha', city: 'Sorocaba', ago: 20 * DAY, syncStatus: null },
+  { kind: 'incident', internalNumber: 'OC-2026-000042', entityType: 'theft', status: 'in_progress', street: 'Rua da Penha', district: 'Centro', city: 'Sorocaba', ago: 2 * HOUR, syncStatus: null },
+  { kind: 'stop', internalNumber: 'AB-2026-000018', entityType: 'stop', status: null, street: 'Av. Dom Aguirre', district: 'Vila Haro', city: 'Sorocaba', ago: 5 * HOUR, syncStatus: 'pending' },
+  { kind: 'incident', internalNumber: 'OC-2026-000041', entityType: 'in_flagrante', status: 'open', street: 'Rua Pará', district: 'Jardim Europa', city: 'Sorocaba', ago: 9 * HOUR, syncStatus: 'draft' },
+  { kind: 'incident', internalNumber: 'OC-2026-000039', entityType: 'vandalism', status: 'closed', street: 'Rua Ipanema', district: 'Éden', city: 'Sorocaba', ago: 1 * DAY + 3 * HOUR, syncStatus: null },
+  { kind: 'stop', internalNumber: 'AB-2026-000015', entityType: 'in_flagrante', status: null, street: 'Rua Comendador Oetterer', district: 'Além Ponte', city: 'Sorocaba', ago: 3 * DAY, syncStatus: 'synced' },
+  { kind: 'incident', internalNumber: 'OC-2026-000034', entityType: 'robbery', status: 'closed', street: 'Av. Ipanema', district: 'Santa Rosália', city: 'Sorocaba', ago: 8 * DAY, syncStatus: null },
+  { kind: 'incident', internalNumber: 'OC-2026-000028', entityType: 'suspicious', status: 'archived', street: 'Estrada da Aparecidinha', district: 'Aparecidinha', city: 'Sorocaba', ago: 20 * DAY, syncStatus: null },
 ]
 
 export function buildMockDashboard(): DashboardData {
@@ -38,6 +39,7 @@ export function buildMockDashboard(): DashboardData {
     internalNumber: seed.internalNumber,
     entityType: seed.entityType,
     status: seed.status,
+    street: seed.street,
     district: seed.district,
     city: seed.city,
     occurredAt: new Date(now - seed.ago).toISOString(),

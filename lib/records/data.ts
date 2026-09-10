@@ -94,6 +94,7 @@ interface ServerRow {
   status?: string | null
   outcome?: string | null
   description: string | null
+  address_street: string | null
   address_district: string | null
   address_city: string | null
   occurred_at?: string
@@ -119,6 +120,7 @@ function rowToItem(
     type: row.type,
     secondary: variant === 'incident' ? row.status ?? null : row.outcome ?? null,
     description: row.description ?? '',
+    street: row.address_street,
     district: row.address_district,
     city: row.address_city,
     occurredAt,
@@ -145,6 +147,7 @@ function draftToItem(
     type: (p.type as string) ?? 'other',
     secondary: (p[cfg.secondaryColumn] as string) ?? null,
     description: (p.description as string) ?? '',
+    street: (p.address_street as string | null) ?? null,
     district: (p.address_district as string | null) ?? null,
     city: (p.address_city as string | null) ?? null,
     occurredAt: (p[cfg.dateColumn] as string) ?? draft.created_at,

@@ -94,7 +94,7 @@ export function RecordsCards({ cfg, items, loading }: Props) {
             <div className="flex items-center gap-1 text-xs text-ink-muted">
               <MapPin className="h-3 w-3 shrink-0" />
               <span className="truncate">
-                {[item.district, item.city].filter(Boolean).join(' · ') || '—'}
+                {[item.street, item.district, item.city].filter(Boolean).join(' · ') || '—'}
               </span>
               <span aria-hidden>·</span>
               <span className="shrink-0">{formatDateTime(item.occurredAt)}</span>

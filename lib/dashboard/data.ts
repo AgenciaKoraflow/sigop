@@ -35,6 +35,7 @@ interface IncidentRow {
   internal_number: string | null
   type: string
   status: string
+  address_street: string | null
   address_district: string | null
   address_city: string | null
   occurred_at: string
@@ -43,6 +44,7 @@ interface IncidentRow {
 interface StopRow {
   id: string
   type: string
+  address_street: string | null
   address_district: string | null
   address_city: string | null
   stopped_at: string
@@ -61,6 +63,7 @@ function incidentToItem(row: IncidentRow, thumbnailUrl: string | null): Activity
     internalNumber: row.internal_number ?? `OC-${shortId(row.id)}`,
     entityType: row.type,
     status: (row.status as ActivityItem['status']) ?? null,
+    street: row.address_street,
     district: row.address_district,
     city: row.address_city,
     occurredAt: row.occurred_at,
@@ -77,6 +80,7 @@ function stopToItem(row: StopRow, thumbnailUrl: string | null): ActivityItem {
     internalNumber: `AB-${shortId(row.id)}`,
     entityType: row.type,
     status: null,
+    street: row.address_street,
     district: row.address_district,
     city: row.address_city,
     occurredAt: row.stopped_at,
@@ -105,6 +109,7 @@ async function mergeLocalDrafts(serverItems: ActivityItem[]): Promise<ActivityIt
       internalNumber: (p.internal_number as string) ?? `OC-${shortId(draft.id)}`,
       entityType: (p.type as string) ?? 'other',
       status: (p.status as ActivityItem['status']) ?? 'open',
+      street: (p.address_street as string | null) ?? null,
       district: (p.address_district as string | null) ?? null,
       city: (p.address_city as string | null) ?? null,
       occurredAt: (p.occurred_at as string) ?? draft.created_at,
@@ -122,6 +127,7 @@ async function mergeLocalDrafts(serverItems: ActivityItem[]): Promise<ActivityIt
       internalNumber: `AB-${shortId(draft.id)}`,
       entityType: (p.type as string) ?? 'stop',
       status: null,
+      street: (p.address_street as string | null) ?? null,
       district: (p.address_district as string | null) ?? null,
       city: (p.address_city as string | null) ?? null,
       occurredAt: (p.stopped_at as string) ?? draft.created_at,
@@ -185,7 +191,7 @@ export async function fetchDashboardOnline(): Promise<DashboardData> {
     supabase
       .from('incidents')
       .select(
-        'id,internal_number,type,status,address_district,address_city,occurred_at',
+        'id,internal_number,type,status,address_street,address_district,address_city,occurred_at',
       )
       .is('deleted_at', null)
       .gte('occurred_at', since)
@@ -193,7 +199,7 @@ export async function fetchDashboardOnline(): Promise<DashboardData> {
       .limit(FEED_LIMIT),
     supabase
       .from('stops')
-      .select('id,type,address_district,address_city,stopped_at')
+      .select('id,type,address_street,address_district,address_city,stopped_at')
       .is('deleted_at', null)
       .gte('stopped_at', since)
       .order('stopped_at', { ascending: false })

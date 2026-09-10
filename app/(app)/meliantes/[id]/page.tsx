@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ArrowLeft, FileText, Loader2, Pencil, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, FileText, Loader2, MapPin, Pencil, ShieldAlert } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { initials } from '@/hooks/use-current-user'
@@ -44,6 +44,13 @@ function fmtDay(iso: string | null): string {
   } catch {
     return '—'
   }
+}
+
+function fmtAddress(
+  parts: Array<string | null | undefined>,
+): string | null {
+  const line = parts.filter((part) => part && String(part).trim()).join(', ')
+  return line || null
 }
 
 export default function OffenderDetailPage({ params }: { params: { id: string } }) {
@@ -202,6 +209,22 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
                       {stopOutcomeLabel(stop.outcome)}
                     </span>
                   </div>
+                  {fmtAddress([
+                    stop.addressStreet,
+                    stop.addressDistrict,
+                    stop.addressCity,
+                  ]) && (
+                    <p className="mt-1.5 flex items-center gap-1 text-xs text-ink-muted">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {fmtAddress([
+                          stop.addressStreet,
+                          stop.addressDistrict,
+                          stop.addressCity,
+                        ])}
+                      </span>
+                    </p>
+                  )}
                   {stop.description && (
                     <p className="mt-1.5 line-clamp-2 text-sm text-ink-secondary">
                       {stop.description}
@@ -257,6 +280,22 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
                       )}
                     </span>
                   </div>
+                  {fmtAddress([
+                    incident.addressStreet,
+                    incident.addressDistrict,
+                    incident.addressCity,
+                  ]) && (
+                    <p className="mt-1.5 flex items-center gap-1 text-xs text-ink-muted">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {fmtAddress([
+                          incident.addressStreet,
+                          incident.addressDistrict,
+                          incident.addressCity,
+                        ])}
+                      </span>
+                    </p>
+                  )}
                   {incident.description && (
                     <p className="mt-1.5 line-clamp-2 text-sm text-ink-secondary">
                       {incident.description}

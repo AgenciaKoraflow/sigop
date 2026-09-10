@@ -44,6 +44,7 @@ export interface RecordListItem {
   /** `incidents.status` or `stops.outcome` — the second badge column. */
   secondary: string | null
   description: string
+  street: string | null
   district: string | null
   city: string | null
   /** `occurred_at` / `stopped_at` (falls back to `created_at`). */
@@ -113,7 +114,7 @@ export const RECORD_CONFIG: Record<RecordVariant, RecordConfig> = {
     secondaryColumn: 'status',
     hasInternalNumber: true,
     selectColumns:
-      'id,internal_number,type,status,description,address_district,address_city,occurred_at',
+      'id,internal_number,type,status,description,address_street,address_district,address_city,occurred_at',
     searchColumns: ['internal_number', 'description', 'address_district'],
     sortColumnMap: {
       internalNumber: 'internal_number',
@@ -153,7 +154,7 @@ export const RECORD_CONFIG: Record<RecordVariant, RecordConfig> = {
     secondaryColumn: 'outcome',
     hasInternalNumber: false,
     selectColumns:
-      'id,type,outcome,description,address_district,address_city,stopped_at',
+      'id,type,outcome,description,address_street,address_district,address_city,stopped_at',
     searchColumns: ['description', 'address_district'],
     sortColumnMap: {
       internalNumber: 'id',

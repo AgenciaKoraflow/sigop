@@ -139,6 +139,9 @@ export interface OffenderStopHistoryItem {
   outcome: string | null
   stoppedAt: string | null
   description: string | null
+  addressStreet: string | null
+  addressDistrict: string | null
+  addressCity: string | null
 }
 
 export interface OffenderIncidentHistoryItem {
@@ -150,6 +153,9 @@ export interface OffenderIncidentHistoryItem {
   role: string | null
   occurredAt: string | null
   description: string | null
+  addressStreet: string | null
+  addressDistrict: string | null
+  addressCity: string | null
 }
 
 export interface OffenderDetail {
@@ -203,12 +209,14 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
   const [{ data: stopLinks }, { data: incidentLinks }, { data: photoRows }] = await Promise.all([
     supabase
       .from('stop_offenders')
-      .select('id, stop_id, stops ( id, type, outcome, stopped_at, description, deleted_at )')
+      .select(
+        'id, stop_id, stops ( id, type, outcome, stopped_at, description, address_street, address_district, address_city, deleted_at )',
+      )
       .eq('offender_id', id),
     supabase
       .from('incident_offenders')
       .select(
-        'id, role, incident_id, incidents ( id, internal_number, type, status, occurred_at, description, deleted_at )',
+        'id, role, incident_id, incidents ( id, internal_number, type, status, occurred_at, description, address_street, address_district, address_city, deleted_at )',
       )
       .eq('offender_id', id),
     supabase
@@ -228,6 +236,9 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
       outcome: link.stops?.outcome ?? null,
       stoppedAt: link.stops?.stopped_at ?? null,
       description: link.stops?.description ?? null,
+      addressStreet: link.stops?.address_street ?? null,
+      addressDistrict: link.stops?.address_district ?? null,
+      addressCity: link.stops?.address_city ?? null,
     }))
     .sort((a, b) => byDateDesc(a.stoppedAt, b.stoppedAt))
 
@@ -242,6 +253,9 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
       role: link.role ?? null,
       occurredAt: link.incidents?.occurred_at ?? null,
       description: link.incidents?.description ?? null,
+      addressStreet: link.incidents?.address_street ?? null,
+      addressDistrict: link.incidents?.address_district ?? null,
+      addressCity: link.incidents?.address_city ?? null,
     }))
     .sort((a, b) => byDateDesc(a.occurredAt, b.occurredAt))
 
@@ -318,6 +332,9 @@ interface RawStopLink {
     outcome: string | null
     stopped_at: string | null
     description: string | null
+    address_street: string | null
+    address_district: string | null
+    address_city: string | null
     deleted_at: string | null
   } | null
 }
@@ -333,6 +350,9 @@ interface RawIncidentLink {
     status: string | null
     occurred_at: string | null
     description: string | null
+    address_street: string | null
+    address_district: string | null
+    address_city: string | null
     deleted_at: string | null
   } | null
 }
