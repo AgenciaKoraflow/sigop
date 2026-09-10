@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { v4 as uuidv4 } from 'uuid'
@@ -14,7 +13,6 @@ import {
   Clock,
   Link2,
   Loader2,
-  MapPin,
   Save,
   Search,
   UserPlus,
@@ -90,18 +88,6 @@ import {
   Textarea,
 } from '@/components/ui'
 
-const LocationMap = dynamic(
-  () => import('@/components/ocorrencias/LocationMap').then((m) => m.LocationMap),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-52 w-full items-center justify-center rounded-input border border-content-border bg-content-bg text-sm text-ink-secondary">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando mapa…
-      </div>
-    ),
-  },
-)
-
 function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -160,9 +146,7 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
   const [photoBusy, setPhotoBusy] = React.useState(false)
   const photoInputRef = React.useRef<HTMLInputElement>(null)
 
-  // GPS / CEP / Google Maps
-  const [gpsLoading, setGpsLoading] = React.useState(false)
-  const [gpsError, setGpsError] = React.useState<string | null>(null)
+  // CEP / Google Maps
   const [cepLoading, setCepLoading] = React.useState(false)
   const [cepError, setCepError] = React.useState<string | null>(null)
   const [gmapsInput, setGmapsInput] = React.useState('')
@@ -508,31 +492,6 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
   // -------------------------------------------------------------------------
   // Location handlers
   // -------------------------------------------------------------------------
-  const useMyLocation = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setGpsError('Este dispositivo não suporta geolocalização.')
-      return
-    }
-    setGpsLoading(true)
-    setGpsError(null)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setValue('latitude', Number(position.coords.latitude.toFixed(7)), { shouldDirty: true })
-        setValue('longitude', Number(position.coords.longitude.toFixed(7)), { shouldDirty: true })
-        setGpsLoading(false)
-      },
-      (error) => {
-        setGpsLoading(false)
-        setGpsError(
-          error.code === error.PERMISSION_DENIED
-            ? 'Permissão de localização negada. Habilite o GPS para o navegador.'
-            : 'Não foi possível obter sua localização. Tente novamente.',
-        )
-      },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
-    )
-  }
-
   const lookupCep = async () => {
     setCepLoading(true)
     setCepError(null)
@@ -559,11 +518,6 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
     setValue('latitude', Number(coords.lat.toFixed(7)), { shouldDirty: true })
     setValue('longitude', Number(coords.lng.toFixed(7)), { shouldDirty: true })
     setValue('gmaps_link', gmapsInput.trim(), { shouldDirty: true })
-  }
-
-  const clearCoords = () => {
-    setValue('latitude', null, { shouldDirty: true })
-    setValue('longitude', null, { shouldDirty: true })
   }
 
   // -------------------------------------------------------------------------
@@ -1071,49 +1025,11 @@ export function FormAbordagem({ mode, stopId }: FormAbordagemProps) {
       <section className="space-y-4">
         <SectionTitle index={3}>Localização</SectionTitle>
 
-        <Tabs defaultValue="gps">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="gps">📍 GPS</TabsTrigger>
+        <Tabs defaultValue="address">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="address">🏠 Endereço</TabsTrigger>
             <TabsTrigger value="link">🔗 Google Maps</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="gps" className="space-y-3">
-            <Button type="button" variant="primary" onClick={useMyLocation} disabled={gpsLoading}>
-              {gpsLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <MapPin className="h-4 w-4" />
-              )}
-              Usar minha localização
-            </Button>
-
-            {gpsError && <p className="text-xs font-medium text-danger">{gpsError}</p>}
-
-            {latitude != null && longitude != null ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between rounded-input border border-content-border bg-content-bg px-3 py-2">
-                  <p className="font-mono text-sm text-ink">
-                    Lat {formatCoord(latitude)} · Long {formatCoord(longitude)}
-                  </p>
-                  <Button type="button" variant="ghost" size="sm" onClick={clearCoords}>
-                    Limpar
-                  </Button>
-                </div>
-                <LocationMap
-                  lat={latitude}
-                  lng={longitude}
-                  onChange={(lat, lng) => {
-                    setValue('latitude', Number(lat.toFixed(7)), { shouldDirty: true })
-                    setValue('longitude', Number(lng.toFixed(7)), { shouldDirty: true })
-                  }}
-                />
-                <p className="text-xs text-ink-secondary">Toque no mapa para ajustar o pino.</p>
-              </div>
-            ) : (
-              <p className="text-sm text-ink-secondary">Nenhuma coordenada capturada ainda.</p>
-            )}
-          </TabsContent>
 
           <TabsContent value="address" className="space-y-4">
             <div className="flex items-end gap-2">
