@@ -4,6 +4,7 @@ import type { Tables, TablesInsert, TablesUpdate } from './database.types'
 export type Unit = Tables<'units'>
 export type Municipality = Tables<'municipalities'>
 export type TerritorialArea = Tables<'territorial_areas'>
+export type Contractor = Tables<'contractors'>
 export type Profile = Tables<'profiles'>
 export type Incident = Tables<'incidents'>
 export type Offender = Tables<'offenders'>

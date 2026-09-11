@@ -67,6 +67,27 @@ export type Database = {
           },
         ]
       }
+      contractors: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
       incident_offenders: {
         Row: {
           created_at: string | null
@@ -459,6 +480,7 @@ export type Database = {
       territorial_areas: {
         Row: {
           code: string | null
+          contractor_id: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
@@ -467,6 +489,7 @@ export type Database = {
         }
         Insert: {
           code?: string | null
+          contractor_id?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -475,6 +498,7 @@ export type Database = {
         }
         Update: {
           code?: string | null
+          contractor_id?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
@@ -482,6 +506,13 @@ export type Database = {
           name?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "territorial_areas_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "territorial_areas_municipality_id_fkey"
             columns: ["municipality_id"]

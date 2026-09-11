@@ -52,8 +52,10 @@ import {
   type OffenderRole,
 } from '@/lib/ocorrencias/form'
 import {
+  listContractors,
   listMunicipalities,
   listTerritorialAreas,
+  type ContractorOption,
   type MunicipalityOption,
   type TerritorialAreaOption,
 } from '@/lib/ocorrencias/data'
@@ -138,9 +140,13 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
   const [pendingRemove, setPendingRemove] = React.useState<string | null>(null)
 
-  // Operational geography (município → AT). Both optional.
+  // Operational geography (Contratada → Município da AT → AT). All optional.
+  // Contratada is a transient UI filter, not persisted — it's fully derivable
+  // from the chosen AT's `contractor_id`.
+  const [contractors, setContractors] = React.useState<ContractorOption[]>([])
   const [municipalities, setMunicipalities] = React.useState<MunicipalityOption[]>([])
   const [territorialAreas, setTerritorialAreas] = React.useState<TerritorialAreaOption[]>([])
+  const [contractorId, setContractorId] = React.useState('')
 
   // CEP
   const [cepLoading, setCepLoading] = React.useState(false)
@@ -165,13 +171,27 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
   const municipalityId = watch('municipality_id') ?? ''
   const territorialAreaId = watch('territorial_area_id') ?? ''
 
-  const areasForMunicipality = React.useMemo(
-    () => territorialAreas.filter((area) => area.municipalityId === municipalityId),
-    [territorialAreas, municipalityId],
+  const municipalitiesForContractor = React.useMemo(() => {
+    if (!contractorId) return []
+    const ids = new Set(
+      territorialAreas.filter((area) => area.contractorId === contractorId).map((area) => area.municipalityId),
+    )
+    return municipalities.filter((municipality) => ids.has(municipality.id))
+  }, [municipalities, territorialAreas, contractorId])
+
+  const areasForSelection = React.useMemo(
+    () =>
+      territorialAreas.filter(
+        (area) => area.contractorId === contractorId && area.municipalityId === municipalityId,
+      ),
+    [territorialAreas, contractorId, municipalityId],
   )
 
   // Load the geography lookups once.
   React.useEffect(() => {
+    listContractors()
+      .then(setContractors)
+      .catch(() => setContractors([]))
     listMunicipalities()
       .then(setMunicipalities)
       .catch(() => setMunicipalities([]))
@@ -180,13 +200,42 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
       .catch(() => setTerritorialAreas([]))
   }, [])
 
-  // Drop the AT when it no longer belongs to the selected município.
+  // Edit mode: the incident already has an AT — derive the Contratada filter
+  // from it once the lookups load, instead of leaving it unset.
+  React.useEffect(() => {
+    if (contractorId || !territorialAreaId) return
+    const area = territorialAreas.find((a) => a.id === territorialAreaId)
+    if (area?.contractorId) setContractorId(area.contractorId)
+  }, [territorialAreas, territorialAreaId, contractorId])
+
+  // Drop the município when it no longer belongs to the selected contratada.
+  React.useEffect(() => {
+    if (!municipalityId) return
+    if (!municipalitiesForContractor.some((municipality) => municipality.id === municipalityId)) {
+      setValue('municipality_id', '', { shouldDirty: true })
+    }
+  }, [municipalitiesForContractor, municipalityId, setValue])
+
+  // Drop the AT when it no longer belongs to the selected contratada + município.
   React.useEffect(() => {
     if (!territorialAreaId) return
-    if (!areasForMunicipality.some((area) => area.id === territorialAreaId)) {
+    if (!areasForSelection.some((area) => area.id === territorialAreaId)) {
       setValue('territorial_area_id', '', { shouldDirty: true })
     }
-  }, [areasForMunicipality, territorialAreaId, setValue])
+  }, [areasForSelection, territorialAreaId, setValue])
+
+  // Auto-select when a level has exactly one valid option.
+  React.useEffect(() => {
+    if (!municipalityId && municipalitiesForContractor.length === 1) {
+      setValue('municipality_id', municipalitiesForContractor[0].id, { shouldDirty: true })
+    }
+  }, [municipalitiesForContractor, municipalityId, setValue])
+
+  React.useEffect(() => {
+    if (!territorialAreaId && areasForSelection.length === 1) {
+      setValue('territorial_area_id', areasForSelection[0].id, { shouldDirty: true })
+    }
+  }, [areasForSelection, territorialAreaId, setValue])
 
   // -------------------------------------------------------------------------
   // Load existing incident (edit mode)
@@ -626,8 +675,30 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
           </p>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Município">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Contratada">
+            <Select
+              value={contractorId || NO_GEO}
+              onValueChange={(value) => setContractorId(value === NO_GEO ? '' : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a contratada" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_GEO}>Não informada</SelectItem>
+                {contractors.map((contractor) => (
+                  <SelectItem key={contractor.id} value={contractor.id}>
+                    {contractor.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field
+            label="Município da AT"
+            hint={!contractorId ? 'Selecione a contratada primeiro' : undefined}
+          >
             <Controller
               control={control}
               name="municipality_id"
@@ -637,13 +708,14 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
                   onValueChange={(value) =>
                     field.onChange(value === NO_GEO ? '' : value)
                   }
+                  disabled={!contractorId}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o município" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_GEO}>Não informado</SelectItem>
-                    {municipalities.map((municipality) => (
+                    {municipalitiesForContractor.map((municipality) => (
                       <SelectItem key={municipality.id} value={municipality.id}>
                         {municipality.name}
                         {municipality.state ? ` · ${municipality.state}` : ''}
@@ -656,13 +728,15 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
           </Field>
 
           <Field
-            label="Área Territorial (AT)"
+            label="AT"
             hint={
-              !municipalityId
-                ? 'Selecione o município primeiro'
-                : areasForMunicipality.length === 0
-                  ? 'Nenhuma AT cadastrada para este município'
-                  : undefined
+              !contractorId
+                ? 'Selecione a contratada primeiro'
+                : !municipalityId
+                  ? 'Selecione o município primeiro'
+                  : areasForSelection.length === 0
+                    ? 'Nenhuma AT cadastrada para esta combinação'
+                    : undefined
             }
           >
             <Controller
@@ -674,14 +748,14 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
                   onValueChange={(value) =>
                     field.onChange(value === NO_GEO ? '' : value)
                   }
-                  disabled={!municipalityId || areasForMunicipality.length === 0}
+                  disabled={!contractorId || !municipalityId || areasForSelection.length === 0}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a AT" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_GEO}>Não informada</SelectItem>
-                    {areasForMunicipality.map((area) => (
+                    {areasForSelection.map((area) => (
                       <SelectItem key={area.id} value={area.id}>
                         {area.name}
                       </SelectItem>

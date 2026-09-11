@@ -34,7 +34,11 @@ import {
   offendersSettingKey,
   offenderRoleLabel,
 } from '@/lib/ocorrencias/form'
-import { getMunicipalityName, getTerritorialAreaName } from '@/lib/ocorrencias/data'
+import {
+  getContractorNameForTerritorialArea,
+  getMunicipalityName,
+  getTerritorialAreaName,
+} from '@/lib/ocorrencias/data'
 import { INCIDENT_TYPE_LABELS, SYNC_LABELS, typeBadgeClass } from '@/lib/dashboard/labels'
 import { PhotoGallery, type RemotePhoto } from '@/components/fotos/PhotoGallery'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
@@ -114,6 +118,7 @@ interface IncidentScalar {
   territorial_area_id: string | null
   municipality_name: string | null
   territorial_area_name: string | null
+  contractor_name: string | null
   created_at: string | null
   updated_at: string | null
 }
@@ -228,6 +233,7 @@ function toIncidentScalar(id: string, row: Record<string, unknown>): IncidentSca
     territorial_area_id: str('territorial_area_id'),
     municipality_name: null,
     territorial_area_name: null,
+    contractor_name: null,
     created_at: str('created_at'),
     updated_at: str('updated_at'),
   }
@@ -407,16 +413,20 @@ async function loadIncidentDetail(
   // network — offline the raw ids are all we have, so the labels stay blank.
   if (isOnline) {
     try {
-      const [municipalityName, territorialAreaName] = await Promise.all([
+      const [municipalityName, territorialAreaName, contractorName] = await Promise.all([
         incident.municipality_id
           ? getMunicipalityName(incident.municipality_id)
           : Promise.resolve(null),
         incident.territorial_area_id
           ? getTerritorialAreaName(incident.territorial_area_id)
           : Promise.resolve(null),
+        incident.territorial_area_id
+          ? getContractorNameForTerritorialArea(incident.territorial_area_id)
+          : Promise.resolve(null),
       ])
       incident.municipality_name = municipalityName
       incident.territorial_area_name = territorialAreaName
+      incident.contractor_name = contractorName
     } catch {
       /* lookup failed — leave the labels blank */
     }
@@ -677,8 +687,9 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
             }
           />
           <Detail label="Registrada em" value={fmtDateTime(incident.created_at)} />
-          <Detail label="Município" value={incident.municipality_name} />
-          <Detail label="Área Territorial (AT)" value={incident.territorial_area_name} />
+          <Detail label="Contratada" value={incident.contractor_name} />
+          <Detail label="Município da AT" value={incident.municipality_name} />
+          <Detail label="AT" value={incident.territorial_area_name} />
           <Detail
             label="Descrição"
             value={incident.description}
