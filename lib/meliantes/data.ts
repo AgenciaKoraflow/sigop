@@ -132,18 +132,6 @@ export interface OffenderRecord {
   updated_at: string | null
 }
 
-export interface OffenderStopHistoryItem {
-  linkId: string
-  stopId: string
-  type: string | null
-  outcome: string | null
-  stoppedAt: string | null
-  description: string | null
-  addressStreet: string | null
-  addressDistrict: string | null
-  addressCity: string | null
-}
-
 export interface OffenderIncidentHistoryItem {
   linkId: string
   incidentId: string
@@ -161,7 +149,6 @@ export interface OffenderDetail {
   offender: OffenderRecord
   /** `true` when the record only exists locally (queued, not yet synced). */
   isLocalOnly: boolean
-  stops: OffenderStopHistoryItem[]
   incidents: OffenderIncidentHistoryItem[]
   photos: RemotePhoto[]
   values: OffenderFormValues
@@ -205,13 +192,7 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
 
   const offender = row as unknown as OffenderRecord
 
-  const [{ data: stopLinks }, { data: incidentLinks }, { data: photoRows }] = await Promise.all([
-    supabase
-      .from('stop_offenders')
-      .select(
-        'id, stop_id, stops ( id, type, outcome, stopped_at, description, address_street, address_district, address_city, deleted_at )',
-      )
-      .eq('offender_id', id),
+  const [{ data: incidentLinks }, { data: photoRows }] = await Promise.all([
     supabase
       .from('incident_offenders')
       .select(
@@ -225,21 +206,6 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
       .eq('entity_id', id)
       .order('sort_order', { ascending: true }),
   ])
-
-  const stops: OffenderStopHistoryItem[] = ((stopLinks ?? []) as unknown as RawStopLink[])
-    .filter((link) => link.stops && !link.stops.deleted_at)
-    .map((link) => ({
-      linkId: link.id,
-      stopId: link.stop_id,
-      type: link.stops?.type ?? null,
-      outcome: link.stops?.outcome ?? null,
-      stoppedAt: link.stops?.stopped_at ?? null,
-      description: link.stops?.description ?? null,
-      addressStreet: link.stops?.address_street ?? null,
-      addressDistrict: link.stops?.address_district ?? null,
-      addressCity: link.stops?.address_city ?? null,
-    }))
-    .sort((a, b) => byDateDesc(a.stoppedAt, b.stoppedAt))
 
   const incidents: OffenderIncidentHistoryItem[] = ((incidentLinks ?? []) as unknown as RawIncidentLink[])
     .filter((link) => link.incidents && !link.incidents.deleted_at)
@@ -274,7 +240,6 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
   return {
     offender,
     isLocalOnly: false,
-    stops,
     incidents,
     photos,
     values: fromOffenderPayload(offender as unknown as Record<string, unknown>),
@@ -311,7 +276,6 @@ function buildLocalDetail(id: string, payload: Record<string, unknown>): Offende
   return {
     offender,
     isLocalOnly: true,
-    stops: [],
     incidents: [],
     photos: [],
     values: fromOffenderPayload(payload),
@@ -321,22 +285,6 @@ function buildLocalDetail(id: string, payload: Record<string, unknown>): Offende
 // ---------------------------------------------------------------------------
 // Raw join shapes
 // ---------------------------------------------------------------------------
-interface RawStopLink {
-  id: string
-  stop_id: string
-  stops: {
-    id: string
-    type: string | null
-    outcome: string | null
-    stopped_at: string | null
-    description: string | null
-    address_street: string | null
-    address_district: string | null
-    address_city: string | null
-    deleted_at: string | null
-  } | null
-}
-
 interface RawIncidentLink {
   id: string
   role: string | null

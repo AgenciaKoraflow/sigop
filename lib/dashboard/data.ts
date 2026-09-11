@@ -4,18 +4,14 @@ import {
   clearRecentCache,
   listRecentCache,
   listDraftIncidents,
-  listDraftStops,
-  readSetting,
-  saveSetting,
 } from '@/lib/db'
 import type { RecentRecordCache } from '@/lib/db/schema'
 import { signPhotoUrls } from '@/lib/fotos/urls'
-import type { ActivityItem, DashboardData, DashboardKpis } from './types'
+import type { ActivityItem, DashboardData } from './types'
 import { buildMockDashboard } from './mock'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const FEED_LIMIT = 40
-const KPI_SETTING_KEY = 'dashboard:kpis'
 
 const since30d = () => new Date(Date.now() - 30 * DAY_MS).toISOString()
 
@@ -40,15 +36,6 @@ interface IncidentRow {
   occurred_at: string
 }
 
-interface StopRow {
-  id: string
-  type: string
-  address_street: string | null
-  address_district: string | null
-  address_city: string | null
-  stopped_at: string
-}
-
 interface PhotoRow {
   entity_id: string
   storage_path: string | null
@@ -58,7 +45,6 @@ interface PhotoRow {
 function incidentToItem(row: IncidentRow, thumbnailUrl: string | null): ActivityItem {
   return {
     id: row.id,
-    kind: 'incident',
     internalNumber: row.internal_number ?? `OC-${shortId(row.id)}`,
     entityType: row.type,
     street: row.address_street,
@@ -71,38 +57,17 @@ function incidentToItem(row: IncidentRow, thumbnailUrl: string | null): Activity
   }
 }
 
-function stopToItem(row: StopRow, thumbnailUrl: string | null): ActivityItem {
-  return {
-    id: row.id,
-    kind: 'stop',
-    internalNumber: `AB-${shortId(row.id)}`,
-    entityType: row.type,
-    street: row.address_street,
-    district: row.address_district,
-    city: row.address_city,
-    occurredAt: row.stopped_at,
-    thumbnailUrl,
-    syncStatus: null,
-    href: `/abordagens/${row.id}`,
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Local drafts (offline store) merged on top of server rows
 // ---------------------------------------------------------------------------
 async function mergeLocalDrafts(serverItems: ActivityItem[]): Promise<ActivityItem[]> {
-  const [draftIncidents, draftStops] = await Promise.all([
-    listDraftIncidents(),
-    listDraftStops(),
-  ])
-
+  const draftIncidents = await listDraftIncidents()
   const byId = new Map(serverItems.map((item) => [item.id, item]))
 
   for (const draft of draftIncidents) {
     const p = draft.payload as Record<string, unknown>
     byId.set(draft.id, {
       id: draft.id,
-      kind: 'incident',
       internalNumber: (p.internal_number as string) ?? `OC-${shortId(draft.id)}`,
       entityType: (p.type as string) ?? 'other',
       street: (p.address_street as string | null) ?? null,
@@ -115,58 +80,24 @@ async function mergeLocalDrafts(serverItems: ActivityItem[]): Promise<ActivityIt
     })
   }
 
-  for (const draft of draftStops) {
-    const p = draft.payload as Record<string, unknown>
-    byId.set(draft.id, {
-      id: draft.id,
-      kind: 'stop',
-      internalNumber: `AB-${shortId(draft.id)}`,
-      entityType: (p.type as string) ?? 'stop',
-      street: (p.address_street as string | null) ?? null,
-      district: (p.address_district as string | null) ?? null,
-      city: (p.address_city as string | null) ?? null,
-      occurredAt: (p.stopped_at as string) ?? draft.created_at,
-      thumbnailUrl: null,
-      syncStatus: draft.status,
-      href: `/abordagens/${draft.id}`,
-    })
-  }
-
   return Array.from(byId.values()).sort(byNewest)
-}
-
-function deriveKpis(items: ActivityItem[]): DashboardKpis {
-  const startOfToday = new Date().setHours(0, 0, 0, 0)
-  return {
-    totalIncidents: items.filter((i) => i.kind === 'incident').length,
-    today: items.filter(
-      (i) => i.kind === 'incident' && new Date(i.occurredAt).getTime() >= startOfToday,
-    ).length,
-    flagrante: items.filter((i) => i.entityType === 'in_flagrante').length,
-    stops: items.filter((i) => i.kind === 'stop').length,
-  }
 }
 
 // ---------------------------------------------------------------------------
 // Local cache persistence
 // ---------------------------------------------------------------------------
-async function persistCache(
-  items: ActivityItem[],
-  kpis: DashboardKpis,
-  generatedAt: string,
-): Promise<void> {
+async function persistCache(items: ActivityItem[], generatedAt: string): Promise<void> {
   const records: RecentRecordCache[] = items
     .filter((item) => !item.id.startsWith('demo-'))
     .map((item) => ({
       id: item.id,
-      type: item.kind,
+      type: 'incident',
       data: item as unknown as Record<string, unknown>,
       cached_at: generatedAt,
     }))
 
   await clearRecentCache()
   if (records.length > 0) await cacheRecords(records)
-  await saveSetting(KPI_SETTING_KEY, { kpis, generatedAt })
 }
 
 // ---------------------------------------------------------------------------
@@ -177,70 +108,23 @@ async function persistCache(
 export async function fetchDashboardOnline(): Promise<DashboardData> {
   const supabase = createClient()
   const since = since30d()
-  const startOfToday = new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
 
-  const [
-    incidentsRes,
-    stopsRes,
-    totalRes,
-    todayRes,
-    flagranteIncidentsRes,
-    flagranteStopsRes,
-    stopsCountRes,
-  ] = await Promise.all([
-    supabase
-      .from('incidents')
-      .select(
-        'id,internal_number,type,address_street,address_district,address_city,occurred_at',
-      )
-      .is('deleted_at', null)
-      .gte('occurred_at', since)
-      .order('occurred_at', { ascending: false })
-      .limit(FEED_LIMIT),
-    supabase
-      .from('stops')
-      .select('id,type,address_street,address_district,address_city,stopped_at')
-      .is('deleted_at', null)
-      .gte('stopped_at', since)
-      .order('stopped_at', { ascending: false })
-      .limit(FEED_LIMIT),
-    supabase
-      .from('incidents')
-      .select('id', { count: 'exact', head: true })
-      .is('deleted_at', null)
-      .gte('occurred_at', since),
-    supabase
-      .from('incidents')
-      .select('id', { count: 'exact', head: true })
-      .is('deleted_at', null)
-      .gte('occurred_at', startOfToday),
-    supabase
-      .from('incidents')
-      .select('id', { count: 'exact', head: true })
-      .is('deleted_at', null)
-      .eq('type', 'in_flagrante')
-      .gte('occurred_at', since),
-    supabase
-      .from('stops')
-      .select('id', { count: 'exact', head: true })
-      .is('deleted_at', null)
-      .eq('type', 'in_flagrante')
-      .gte('stopped_at', since),
-    supabase
-      .from('stops')
-      .select('id', { count: 'exact', head: true })
-      .is('deleted_at', null)
-      .gte('stopped_at', since),
-  ])
+  const incidentsRes = await supabase
+    .from('incidents')
+    .select(
+      'id,internal_number,type,address_street,address_district,address_city,occurred_at',
+    )
+    .is('deleted_at', null)
+    .gte('occurred_at', since)
+    .order('occurred_at', { ascending: false })
+    .limit(FEED_LIMIT)
 
   if (incidentsRes.error) throw new Error(incidentsRes.error.message)
-  if (stopsRes.error) throw new Error(stopsRes.error.message)
 
   const incidents = (incidentsRes.data ?? []) as IncidentRow[]
-  const stops = (stopsRes.data ?? []) as StopRow[]
 
   // First photo (lowest sort_order) per entity, for the row thumbnail.
-  const entityIds = [...incidents.map((i) => i.id), ...stops.map((s) => s.id)]
+  const entityIds = incidents.map((i) => i.id)
   const thumbs = new Map<string, string>()
   if (entityIds.length > 0) {
     const { data: photos } = await supabase
@@ -266,41 +150,23 @@ export async function fetchDashboardOnline(): Promise<DashboardData> {
     })
   }
 
-  const serverItems = [
-    ...incidents.map((row) => incidentToItem(row, thumbs.get(row.id) ?? null)),
-    ...stops.map((row) => stopToItem(row, thumbs.get(row.id) ?? null)),
-  ]
-
+  const serverItems = incidents.map((row) => incidentToItem(row, thumbs.get(row.id) ?? null))
   const items = await mergeLocalDrafts(serverItems)
-  const kpis: DashboardKpis = {
-    totalIncidents: totalRes.count ?? 0,
-    today: todayRes.count ?? 0,
-    flagrante: (flagranteIncidentsRes.count ?? 0) + (flagranteStopsRes.count ?? 0),
-    stops: stopsCountRes.count ?? 0,
-  }
 
-  const hasRealData =
-    items.length > 0 || kpis.totalIncidents > 0 || kpis.stops > 0
-
-  if (!hasRealData) {
+  if (items.length === 0) {
     // Empty database — show demo data so the screen is not blank.
     return buildMockDashboard()
   }
 
   const generatedAt = new Date().toISOString()
-  await persistCache(items, kpis, generatedAt).catch(() => {})
+  await persistCache(items, generatedAt).catch(() => {})
 
-  return { kpis, items, isDemo: false, fromCache: false, generatedAt }
+  return { items, isDemo: false, fromCache: false, generatedAt }
 }
 
 /** Offline path: read the last snapshot from IndexedDB. */
 export async function fetchDashboardOffline(): Promise<DashboardData> {
-  const [cached, snapshot] = await Promise.all([
-    listRecentCache(),
-    readSetting(KPI_SETTING_KEY) as Promise<
-      { kpis: DashboardKpis; generatedAt: string } | undefined
-    >,
-  ])
+  const cached = await listRecentCache()
 
   const cachedItems = cached
     .map((record) => record.data as unknown as ActivityItem)
@@ -308,15 +174,14 @@ export async function fetchDashboardOffline(): Promise<DashboardData> {
 
   const items = await mergeLocalDrafts(cachedItems)
 
-  if (items.length === 0 && !snapshot) {
+  if (items.length === 0) {
     return { ...buildMockDashboard(), fromCache: true }
   }
 
   return {
-    kpis: snapshot?.kpis ?? deriveKpis(items),
     items,
     isDemo: false,
     fromCache: true,
-    generatedAt: snapshot?.generatedAt ?? new Date().toISOString(),
+    generatedAt: new Date().toISOString(),
   }
 }

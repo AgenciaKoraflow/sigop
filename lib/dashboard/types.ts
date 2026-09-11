@@ -1,19 +1,16 @@
 import type { SyncStatus } from '@/types/app.types'
 
-/** A record shown in the "Atividade recente" feed — an incident or a stop. */
-export type ActivityKind = 'incident' | 'stop'
-
+/** A record shown in the "Atividade recente" feed. */
 export interface ActivityItem {
   id: string
-  kind: ActivityKind
-  /** Internal code, e.g. `OC-2024-000042` (incidents) or `AB-1A2B3C` (stops). */
+  /** Internal code, e.g. `OC-2024-000042`. */
   internalNumber: string
-  /** `incidents.type` or `stops.type`. */
+  /** `incidents.type`. */
   entityType: string
   street: string | null
   district: string | null
   city: string | null
-  /** `occurred_at` / `stopped_at` (falls back to `created_at`). */
+  /** `occurred_at` (falls back to `created_at`). */
   occurredAt: string
   thumbnailUrl: string | null
   /** Set only for records still living in the local offline store. */
@@ -21,19 +18,7 @@ export interface ActivityItem {
   href: string
 }
 
-export interface DashboardKpis {
-  /** Incidents in the last 30 days. */
-  totalIncidents: number
-  /** Incidents registered today. */
-  today: number
-  /** Flagrant records (incidents + stops) in the last 30 days. */
-  flagrante: number
-  /** Stops in the last 30 days. */
-  stops: number
-}
-
 export interface DashboardData {
-  kpis: DashboardKpis
   items: ActivityItem[]
   /** Demo payload — the database has no records and there is no local cache. */
   isDemo: boolean

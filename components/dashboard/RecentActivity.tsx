@@ -66,7 +66,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
               typeBadgeClass(item.entityType),
             )}
           >
-            {typeLabel(item.kind, item.entityType)}
+            {typeLabel(item.entityType)}
           </span>
           {item.syncStatus && (
             <Badge variant={item.syncStatus}>{SYNC_LABELS[item.syncStatus]}</Badge>
@@ -147,7 +147,7 @@ export function RecentActivity({
       ) : (
         <ul className="divide-y divide-content-border">
           {filtered.map((item) => (
-            <li key={`${item.kind}-${item.id}`}>
+            <li key={item.id}>
               <ActivityRow item={item} />
             </li>
           ))}

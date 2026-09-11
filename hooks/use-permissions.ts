@@ -17,7 +17,6 @@ interface Permissions {
   canCreateIncident: boolean
   canEditIncident: boolean
   canDelete: boolean
-  canCreateStop: boolean
   canViewDashboard: boolean
   canResolveConflicts: boolean
   canExport: boolean
@@ -32,7 +31,6 @@ const PERMISSIONS_BY_ROLE: Record<UserRole, RolePermissions> = {
     canCreateIncident:   true,
     canEditIncident:     true,
     canDelete:           false,
-    canCreateStop:       true,
     canViewDashboard:    false,
     canResolveConflicts: false,
     canExport:           false,
@@ -43,7 +41,6 @@ const PERMISSIONS_BY_ROLE: Record<UserRole, RolePermissions> = {
     canCreateIncident:   true,
     canEditIncident:     true,
     canDelete:           false,
-    canCreateStop:       true,
     canViewDashboard:    true,
     canResolveConflicts: true,
     canExport:           true,
@@ -54,7 +51,6 @@ const PERMISSIONS_BY_ROLE: Record<UserRole, RolePermissions> = {
     canCreateIncident:   true,
     canEditIncident:     true,
     canDelete:           true,
-    canCreateStop:       true,
     canViewDashboard:    true,
     canResolveConflicts: true,
     canExport:           true,

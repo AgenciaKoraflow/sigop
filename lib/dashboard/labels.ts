@@ -8,12 +8,8 @@ export const INCIDENT_TYPE_LABELS: Record<string, string> = {
   vandalism: 'Vandalismo',
   in_flagrante: 'Flagrante',
   suspicious: 'Suspeita',
-  other: 'Outro',
-}
-
-export const STOP_TYPE_LABELS: Record<string, string> = {
   stop: 'Abordagem',
-  in_flagrante: 'Flagrante',
+  other: 'Outro',
 }
 
 export const SYNC_LABELS: Record<SyncStatus, string> = {
@@ -40,7 +36,6 @@ export function typeBadgeClass(type: string): string {
   }
 }
 
-export function typeLabel(kind: 'incident' | 'stop', type: string): string {
-  const map = kind === 'incident' ? INCIDENT_TYPE_LABELS : STOP_TYPE_LABELS
-  return map[type] ?? type
+export function typeLabel(type: string): string {
+  return INCIDENT_TYPE_LABELS[type] ?? type
 }

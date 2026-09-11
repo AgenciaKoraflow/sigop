@@ -29,26 +29,10 @@ export interface DraftIncident {
   updated_at: string
 }
 
-/** Locally edited stop waiting to be synced to the server. */
-export interface DraftStop {
-  id: string
-  entity_type: 'stop'
-  operation: Operation
-  payload: Record<string, unknown>
-  status: SyncStatus
-  sync_attempts: number
-  last_error: string | null
-  next_attempt_at: string | null
-  local_version: number
-  remote_version: number | null
-  created_at: string
-  updated_at: string
-}
-
 /** Photo captured offline, stored as a binary Blob until uploaded. */
 export interface PendingPhoto {
   id: string
-  entity_type: 'incident' | 'stop' | 'offender'
+  entity_type: 'incident' | 'offender'
   entity_id: string
   blob: Blob // ALWAYS a Blob, never base64
   mime_type: string
@@ -79,7 +63,7 @@ export interface SyncQueueItem {
 /** Read-only snapshot of server records for offline browsing. */
 export interface RecentRecordCache {
   id: string
-  type: 'incident' | 'stop'
+  type: 'incident'
   data: Record<string, unknown>
   cached_at: string
 }

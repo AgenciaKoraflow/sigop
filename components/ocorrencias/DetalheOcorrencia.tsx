@@ -35,13 +35,7 @@ import {
   offenderRoleLabel,
 } from '@/lib/ocorrencias/form'
 import { getMunicipalityName, getTerritorialAreaName } from '@/lib/ocorrencias/data'
-import {
-  INCIDENT_TYPE_LABELS,
-  STOP_TYPE_LABELS,
-  SYNC_LABELS,
-  typeBadgeClass,
-} from '@/lib/dashboard/labels'
-import { STOP_OUTCOME_LABELS } from '@/lib/records/config'
+import { INCIDENT_TYPE_LABELS, SYNC_LABELS, typeBadgeClass } from '@/lib/dashboard/labels'
 import { PhotoGallery, type RemotePhoto } from '@/components/fotos/PhotoGallery'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { signPhotoUrls } from '@/lib/fotos/urls'
@@ -133,15 +127,6 @@ interface LinkedOffenderView {
   photoUrl: string | null
 }
 
-interface LinkedStopView {
-  id: string
-  type: string | null
-  outcome: string | null
-  stoppedAt: string | null
-  description: string | null
-  agentName: string | null
-}
-
 interface AuditChange {
   field: string
   from: unknown
@@ -161,7 +146,6 @@ interface IncidentDetail {
   source: 'remote' | 'local'
   syncStatus: SyncStatus | null
   offenders: LinkedOffenderView[]
-  stops: LinkedStopView[]
   photos: RemotePhoto[]
   audit: AuditEntry[]
 }
@@ -262,15 +246,6 @@ interface RawOffenderLink {
   } | null
 }
 
-interface RawStopRow {
-  id: string
-  type: string | null
-  outcome: string | null
-  stopped_at: string | null
-  description: string | null
-  created_by: string | null
-}
-
 interface RawAuditRow {
   id: string
   operation: string
@@ -297,7 +272,6 @@ async function loadIncidentDetail(
 
   let serverRow: Record<string, unknown> | null = null
   let offenders: LinkedOffenderView[] = []
-  let stops: LinkedStopView[] = []
   let photos: RemotePhoto[] = []
   let audit: AuditEntry[] = []
 
@@ -312,19 +286,13 @@ async function loadIncidentDetail(
     serverRow = (data as Record<string, unknown>) ?? null
 
     if (serverRow) {
-      const [linkRes, stopRes, photoRes, auditRes] = await Promise.all([
+      const [linkRes, photoRes, auditRes] = await Promise.all([
         supabase
           .from('incident_offenders')
           .select(
             'id, role, offender_id, offenders ( id, full_name, social_name, nickname, main_photo_url )',
           )
           .eq('incident_id', id),
-        supabase
-          .from('stops')
-          .select('id, type, outcome, stopped_at, description, created_by')
-          .eq('incident_id', id)
-          .is('deleted_at', null)
-          .order('stopped_at', { ascending: false }),
         supabase
           .from('photos')
           .select('id, storage_path, description, sort_order')
@@ -355,12 +323,10 @@ async function loadIncidentDetail(
         photoUrl: link.offenders?.main_photo_url ?? null,
       }))
 
-      const stopRows = (stopRes.data ?? []) as unknown as RawStopRow[]
       const auditRows = (auditRes.data ?? []) as unknown as RawAuditRow[]
 
-      const profileIds = stopRows
-        .map((row) => row.created_by)
-        .concat(auditRows.map((row) => row.performed_by))
+      const profileIds = auditRows
+        .map((row) => row.performed_by)
         .filter((value, index, all): value is string =>
           Boolean(value) && all.indexOf(value) === index,
         )
@@ -374,15 +340,6 @@ async function loadIncidentDetail(
           profileNames.set(profile.id, profile.full_name)
         }
       }
-
-      stops = stopRows.map((row) => ({
-        id: row.id,
-        type: row.type,
-        outcome: row.outcome,
-        stoppedAt: row.stopped_at,
-        description: row.description,
-        agentName: row.created_by ? profileNames.get(row.created_by) ?? null : null,
-      }))
 
       const photoRows = (photoRes.data ?? []) as unknown as {
         id: string
@@ -498,7 +455,6 @@ async function loadIncidentDetail(
     source: effectiveDraft ? 'local' : 'remote',
     syncStatus: effectiveDraft ? effectiveDraft.status : null,
     offenders,
-    stops,
     photos,
     audit,
   }
@@ -636,7 +592,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
     )
   }
 
-  const { incident, source, syncStatus, offenders, stops, photos, audit } = data
+  const { incident, source, syncStatus, offenders, photos, audit } = data
   const internalNumber = incident.internal_number ?? `OC-${shortId(incident.id)}`
   const isLocal = source === 'local'
   const hasCoords = incident.latitude != null && incident.longitude != null
@@ -844,53 +800,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
         )}
       </section>
 
-      <Separator />
-
-      {/* SEÇÃO 5 — Abordagens vinculadas ---------------------------- */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-ink">
-          Abordagens vinculadas{' '}
-          <span className="text-sm font-normal text-ink-muted">({stops.length})</span>
-        </h2>
-        {stops.length === 0 ? (
-          <EmptyRow>Nenhuma abordagem vinculada.</EmptyRow>
-        ) : (
-          <ul className="space-y-2">
-            {stops.map((stop) => (
-              <li key={stop.id}>
-                <Link
-                  href={`/abordagens/${stop.id}`}
-                  className="block rounded-card border border-content-border bg-white p-3 transition-colors hover:border-brand/40"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant={stop.type === 'in_flagrante' ? 'in_flagrante' : 'secondary'}
-                    >
-                      {STOP_TYPE_LABELS[stop.type ?? ''] ?? stop.type ?? '—'}
-                    </Badge>
-                    <span className="text-xs text-ink-secondary">
-                      {fmtDateTime(stop.stoppedAt)}
-                    </span>
-                    <span className="ml-auto text-xs font-medium text-ink-secondary">
-                      {STOP_OUTCOME_LABELS[stop.outcome ?? ''] ?? stop.outcome ?? '—'}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-ink-muted">
-                    Agente: {stop.agentName ?? '—'}
-                  </p>
-                  {stop.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-ink-secondary">
-                      {stop.description}
-                    </p>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* SEÇÃO 6 — Histórico (supervisor / admin) ------------------- */}
+      {/* SEÇÃO 5 — Histórico (supervisor / admin) -------------------- */}
       {perms.canViewAuditLog && (
         <>
           <Separator />

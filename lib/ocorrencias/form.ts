@@ -30,6 +30,7 @@ export const INCIDENT_TYPE_OPTIONS: {
   { value: 'vandalism', label: 'Vandalismo', emoji: '🔨' },
   { value: 'in_flagrante', label: 'Flagrante', emoji: '⚠️' },
   { value: 'suspicious', label: 'Suspeito', emoji: '👁️' },
+  { value: 'stop', label: 'Abordagem', emoji: '🧍' },
   { value: 'other', label: 'Outros', emoji: '📋' },
 ]
 
@@ -55,7 +56,7 @@ const optionalText = z.string().trim().optional().or(z.literal(''))
 export const incidentFormSchema = z
   .object({
     type: z.enum(
-      ['theft', 'robbery', 'vandalism', 'in_flagrante', 'suspicious', 'other'],
+      ['theft', 'robbery', 'vandalism', 'in_flagrante', 'suspicious', 'other', 'stop'],
       { required_error: 'Selecione o tipo de ocorrência' },
     ),
     subtype: z.string().trim().max(120, 'Máximo de 120 caracteres').optional().or(z.literal('')),

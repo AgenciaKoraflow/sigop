@@ -6,13 +6,7 @@ import { Plus, WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useRecords } from '@/hooks/use-records'
-import {
-  PAGE_SIZE,
-  RECORD_CONFIG,
-  type RecordFilters,
-  type RecordVariant,
-  type SortColumn,
-} from '@/lib/records/config'
+import { PAGE_SIZE, RECORD_CONFIG, type RecordFilters, type SortColumn } from '@/lib/records/config'
 import { RecordFiltersBar, type ViewMode } from './RecordFiltersBar'
 import { RecordsCards } from './RecordsCards'
 import { RecordsPagination } from './RecordsPagination'
@@ -24,18 +18,12 @@ const DEFAULT_FILTERS: RecordFilters = {
   customFrom: undefined,
   customTo: undefined,
   type: undefined,
-  secondary: undefined,
   sort: { column: 'date', direction: 'desc' },
   page: 1,
 }
 
-export function RecordsListView({ variant }: { variant: RecordVariant }) {
-  const cfg = RECORD_CONFIG[variant]
+export function RecordsListView() {
   const permissions = usePermissions()
-  const canCreate =
-    variant === 'incident'
-      ? permissions.canCreateIncident
-      : permissions.canCreateStop
 
   const [filters, setFilters] = useState<RecordFilters>(DEFAULT_FILTERS)
   const [search, setSearch] = useState('')
@@ -56,7 +44,7 @@ export function RecordsListView({ variant }: { variant: RecordVariant }) {
     return () => clearTimeout(id)
   }, [search])
 
-  const { data, isLoading, isFetching, isError } = useRecords(variant, filters)
+  const { data, isLoading, isFetching, isError } = useRecords(filters)
 
   const patch = (next: Partial<RecordFilters>) =>
     setFilters((current) => ({ ...current, ...next, page: next.page ?? 1 }))
@@ -74,11 +62,7 @@ export function RecordsListView({ variant }: { variant: RecordVariant }) {
           : { column, direction: column === 'date' ? 'desc' : 'asc' },
     }))
 
-  const hasActiveFilters =
-    !!filters.search ||
-    !!filters.period ||
-    !!filters.type ||
-    !!filters.secondary
+  const hasActiveFilters = !!filters.search || !!filters.period || !!filters.type
 
   const clearFilters = () => {
     setSearch('')
@@ -94,26 +78,25 @@ export function RecordsListView({ variant }: { variant: RecordVariant }) {
     <div className="mx-auto max-w-6xl space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-ink">
-          {cfg.title}{' '}
+          {RECORD_CONFIG.title}{' '}
           <span className="font-semibold text-ink-muted">({total})</span>
         </h1>
-        {canCreate && (
+        {permissions.canCreateIncident && (
           <Button
             asChild
             variant="primary"
             size="lg"
             className="w-full justify-center sm:w-auto"
           >
-            <Link href={cfg.newHref}>
+            <Link href={RECORD_CONFIG.newHref}>
               <Plus />
-              {cfg.newLabel}
+              {RECORD_CONFIG.newLabel}
             </Link>
           </Button>
         )}
       </header>
 
       <RecordFiltersBar
-        cfg={cfg}
         filters={filters}
         search={search}
         onSearch={setSearch}
@@ -139,14 +122,13 @@ export function RecordsListView({ variant }: { variant: RecordVariant }) {
 
       {view === 'table' ? (
         <RecordsTable
-          cfg={cfg}
           items={data?.items ?? []}
           loading={isLoading}
           sort={filters.sort}
           onToggleSort={toggleSort}
         />
       ) : (
-        <RecordsCards cfg={cfg} items={data?.items ?? []} loading={isLoading} />
+        <RecordsCards items={data?.items ?? []} loading={isLoading} />
       )}
 
       {showPagination && (

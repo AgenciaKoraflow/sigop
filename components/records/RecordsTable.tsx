@@ -13,39 +13,24 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils/cn'
 import { typeBadgeClass, typeLabel } from '@/lib/dashboard/labels'
-import type {
-  RecordConfig,
-  RecordFilters,
-  RecordListItem,
-  SortColumn,
-} from '@/lib/records/config'
-import {
-  SecondaryBadge,
-  SortIcon,
-  SyncBadge,
-  TableSkeletonRow,
-  formatDateTime,
-  isDraftRow,
-} from './record-ui'
+import type { RecordFilters, RecordListItem, SortColumn } from '@/lib/records/config'
+import { RECORD_CONFIG } from '@/lib/records/config'
+import { SortIcon, SyncBadge, TableSkeletonRow, formatDateTime, isDraftRow } from './record-ui'
 
 interface Props {
-  cfg: RecordConfig
   items: RecordListItem[]
   loading: boolean
   sort: RecordFilters['sort']
   onToggleSort: (column: SortColumn) => void
 }
 
-export function RecordsTable({ cfg, items, loading, sort, onToggleSort }: Props) {
+export function RecordsTable({ items, loading, sort, onToggleSort }: Props) {
   const router = useRouter()
 
   const columns: { key: SortColumn | null; label: string; align?: 'right' }[] = [
     { key: null, label: 'Foto' },
-    { key: cfg.hasInternalNumber ? 'internalNumber' : null, label: 'Número interno' },
+    { key: 'internalNumber', label: 'Número interno' },
     { key: 'type', label: 'Tipo' },
-    ...(cfg.hasSecondary
-      ? [{ key: 'secondary' as SortColumn, label: cfg.secondaryFilterLabel }]
-      : []),
     { key: 'date', label: 'Data e hora' },
     { key: 'address', label: 'Endereço' },
     { key: null, label: 'Sync' },
@@ -93,17 +78,12 @@ export function RecordsTable({ cfg, items, loading, sort, onToggleSort }: Props)
                 colSpan={columns.length}
                 className="py-16 text-center text-sm text-ink-secondary"
               >
-                {cfg.emptyLabel}
+                {RECORD_CONFIG.emptyLabel}
               </TableCell>
             </TableRow>
           ) : (
             items.map((item) => (
-              <RecordRow
-                key={`${item.variant}-${item.id}`}
-                item={item}
-                showSecondary={cfg.hasSecondary}
-                onOpen={() => router.push(item.href)}
-              />
+              <RecordRow key={item.id} item={item} onOpen={() => router.push(item.href)} />
             ))
           )}
         </TableBody>
@@ -112,15 +92,7 @@ export function RecordsTable({ cfg, items, loading, sort, onToggleSort }: Props)
   )
 }
 
-function RecordRow({
-  item,
-  showSecondary,
-  onOpen,
-}: {
-  item: RecordListItem
-  showSecondary: boolean
-  onOpen: () => void
-}) {
+function RecordRow({ item, onOpen }: { item: RecordListItem; onOpen: () => void }) {
   const place =
     [item.street, item.district, item.city].filter(Boolean).join(' · ') || '—'
 
@@ -165,15 +137,9 @@ function RecordRow({
             typeBadgeClass(item.type),
           )}
         >
-          {typeLabel(item.variant, item.type)}
+          {typeLabel(item.type)}
         </span>
       </TableCell>
-
-      {showSecondary && (
-        <TableCell>
-          <SecondaryBadge variant={item.variant} value={item.secondary} />
-        </TableCell>
-      )}
 
       <TableCell className="whitespace-nowrap text-sm text-ink-secondary">
         {formatDateTime(item.occurredAt)}

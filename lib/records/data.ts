@@ -6,19 +6,13 @@ import {
   endOfDay,
 } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
-import { listDraftIncidents, listDraftStops } from '@/lib/db'
+import { listDraftIncidents } from '@/lib/db'
 import { signPhotoUrls } from '@/lib/fotos/urls'
-import type { DraftIncident, DraftStop } from '@/lib/db/schema'
-import {
-  PAGE_SIZE,
-  RECORD_CONFIG,
-  type RecordFilters,
-  type RecordListItem,
-  type RecordVariant,
-} from './config'
+import type { DraftIncident } from '@/lib/db/schema'
+import { PAGE_SIZE, RECORD_CONFIG, type RecordFilters, type RecordListItem } from './config'
 
 /**
- * Data layer for the operational listing screens.
+ * Data layer for the `/ocorrencias` listing screen.
  *
  * Online: paginated Supabase query merged, on page 1, with the local drafts
  * still sitting in IndexedDB (which always surface, pinned to the top).
@@ -91,72 +85,46 @@ interface ServerRow {
   id: string
   internal_number?: string | null
   type: string
-  outcome?: string | null
   description: string | null
   address_street: string | null
   address_district: string | null
   address_city: string | null
-  occurred_at?: string
-  stopped_at?: string
+  occurred_at: string
 }
 
-function rowToItem(
-  variant: RecordVariant,
-  row: ServerRow,
-  thumbnailUrl: string | null,
-): RecordListItem {
-  const cfg = RECORD_CONFIG[variant]
-  const occurredAt =
-    (variant === 'incident' ? row.occurred_at : row.stopped_at) ??
-    new Date().toISOString()
-
+function rowToItem(row: ServerRow, thumbnailUrl: string | null): RecordListItem {
   return {
     id: row.id,
-    variant,
-    internalNumber: cfg.hasInternalNumber
-      ? row.internal_number ?? `OC-${shortId(row.id)}`
-      : `AB-${shortId(row.id)}`,
+    internalNumber: row.internal_number ?? `OC-${shortId(row.id)}`,
     type: row.type,
-    secondary: cfg.hasSecondary ? row.outcome ?? null : null,
     description: row.description ?? '',
     street: row.address_street,
     district: row.address_district,
     city: row.address_city,
-    occurredAt,
+    occurredAt: row.occurred_at,
     thumbnailUrl,
     syncStatus: null,
     isLocal: false,
-    href: `${cfg.detailBase}/${row.id}`,
+    href: `${RECORD_CONFIG.detailBase}/${row.id}`,
   }
 }
 
-function draftToItem(
-  variant: RecordVariant,
-  draft: DraftIncident | DraftStop,
-): RecordListItem {
-  const cfg = RECORD_CONFIG[variant]
+function draftToItem(draft: DraftIncident): RecordListItem {
   const p = draft.payload as Record<string, unknown>
 
   return {
     id: draft.id,
-    variant,
-    internalNumber: cfg.hasInternalNumber
-      ? (p.internal_number as string) ?? `OC-${shortId(draft.id)}`
-      : `AB-${shortId(draft.id)}`,
+    internalNumber: (p.internal_number as string) ?? `OC-${shortId(draft.id)}`,
     type: (p.type as string) ?? 'other',
-    secondary:
-      cfg.hasSecondary && cfg.secondaryColumn
-        ? (p[cfg.secondaryColumn] as string) ?? null
-        : null,
     description: (p.description as string) ?? '',
     street: (p.address_street as string | null) ?? null,
     district: (p.address_district as string | null) ?? null,
     city: (p.address_city as string | null) ?? null,
-    occurredAt: (p[cfg.dateColumn] as string) ?? draft.created_at,
+    occurredAt: (p[RECORD_CONFIG.dateColumn] as string) ?? draft.created_at,
     thumbnailUrl: null,
     syncStatus: draft.status,
     isLocal: true,
-    href: `${cfg.detailBase}/${draft.id}`,
+    href: `${RECORD_CONFIG.detailBase}/${draft.id}`,
   }
 }
 
@@ -166,14 +134,8 @@ const byNewest = (a: RecordListItem, b: RecordListItem) =>
 // ---------------------------------------------------------------------------
 // Local drafts
 // ---------------------------------------------------------------------------
-function draftMatches(
-  item: RecordListItem,
-  filters: RecordFilters,
-  cfg: (typeof RECORD_CONFIG)[RecordVariant],
-): boolean {
+function draftMatches(item: RecordListItem, filters: RecordFilters): boolean {
   if (filters.type && item.type !== filters.type) return false
-  if (cfg.hasSecondary && filters.secondary && item.secondary !== filters.secondary)
-    return false
 
   const { from, to } = resolvePeriod(filters)
   const t = new Date(item.occurredAt).getTime()
@@ -191,26 +153,18 @@ function draftMatches(
   return true
 }
 
-async function fetchDrafts(
-  variant: RecordVariant,
-  filters: RecordFilters,
-): Promise<RecordListItem[]> {
-  const drafts =
-    variant === 'incident' ? await listDraftIncidents() : await listDraftStops()
-  const cfg = RECORD_CONFIG[variant]
+async function fetchDrafts(filters: RecordFilters): Promise<RecordListItem[]> {
+  const drafts = await listDraftIncidents()
   return drafts
-    .map((draft) => draftToItem(variant, draft))
-    .filter((item) => draftMatches(item, filters, cfg))
+    .map((draft) => draftToItem(draft))
+    .filter((item) => draftMatches(item, filters))
     .sort(byNewest)
 }
 
 // ---------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------
-async function fetchThumbnails(
-  variant: RecordVariant,
-  ids: string[],
-): Promise<Map<string, string>> {
+async function fetchThumbnails(ids: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>()
   if (ids.length === 0) return map
 
@@ -218,7 +172,7 @@ async function fetchThumbnails(
   const { data } = await supabase
     .from('photos')
     .select('entity_id,storage_path,sort_order')
-    .eq('entity_type', variant)
+    .eq('entity_type', 'incident')
     .in('entity_id', ids)
     .order('sort_order', { ascending: true })
 
@@ -244,33 +198,28 @@ async function fetchThumbnails(
 }
 
 async function fetchServer(
-  variant: RecordVariant,
   filters: RecordFilters,
 ): Promise<{ items: RecordListItem[]; count: number }> {
-  const cfg = RECORD_CONFIG[variant]
-
   // `.gte`/`.lte`/`.eq`/`.or` all return the same filter builder, so the
   // conditional chain can reassign; `.order`/`.range` are chained at the end.
   let query = untyped()
-    .from(cfg.table)
-    .select(cfg.selectColumns, { count: 'exact' })
+    .from(RECORD_CONFIG.table)
+    .select(RECORD_CONFIG.selectColumns, { count: 'exact' })
     .is('deleted_at', null)
 
   const { from, to } = resolvePeriod(filters)
-  if (from) query = query.gte(cfg.dateColumn, from)
-  if (to) query = query.lte(cfg.dateColumn, to)
+  if (from) query = query.gte(RECORD_CONFIG.dateColumn, from)
+  if (to) query = query.lte(RECORD_CONFIG.dateColumn, to)
   if (filters.type) query = query.eq('type', filters.type)
-  if (cfg.hasSecondary && cfg.secondaryColumn && filters.secondary)
-    query = query.eq(cfg.secondaryColumn, filters.secondary)
 
   const term = sanitize(filters.search)
   if (term) {
     query = query.or(
-      cfg.searchColumns.map((column) => `${column}.ilike.%${term}%`).join(','),
+      RECORD_CONFIG.searchColumns.map((column) => `${column}.ilike.%${term}%`).join(','),
     )
   }
 
-  const sortColumn = cfg.sortColumnMap[filters.sort.column] ?? cfg.dateColumn
+  const sortColumn = RECORD_CONFIG.sortColumnMap[filters.sort.column] ?? RECORD_CONFIG.dateColumn
   const start = (filters.page - 1) * PAGE_SIZE
 
   const { data, count, error } = await query
@@ -282,13 +231,10 @@ async function fetchServer(
   if (error) throw new Error(error.message)
 
   const rows = (data ?? []) as unknown as ServerRow[]
-  const thumbs = await fetchThumbnails(
-    variant,
-    rows.map((row) => row.id),
-  )
+  const thumbs = await fetchThumbnails(rows.map((row) => row.id))
 
   return {
-    items: rows.map((row) => rowToItem(variant, row, thumbs.get(row.id) ?? null)),
+    items: rows.map((row) => rowToItem(row, thumbs.get(row.id) ?? null)),
     count: count ?? 0,
   }
 }
@@ -297,11 +243,10 @@ async function fetchServer(
 // Public API
 // ---------------------------------------------------------------------------
 export async function fetchRecordsPage(
-  variant: RecordVariant,
   filters: RecordFilters,
   isOnline: boolean,
 ): Promise<RecordsPage> {
-  const drafts = await fetchDrafts(variant, filters)
+  const drafts = await fetchDrafts(filters)
   const draftsForPage = filters.page === 1 ? drafts : []
 
   if (!isOnline) {
@@ -314,7 +259,7 @@ export async function fetchRecordsPage(
     }
   }
 
-  const { items: serverItems, count } = await fetchServer(variant, filters)
+  const { items: serverItems, count } = await fetchServer(filters)
   const draftIds = new Set(drafts.map((draft) => draft.id))
   const serverOnly = serverItems.filter((item) => !draftIds.has(item.id))
 

@@ -18,7 +18,6 @@ import {
   RefreshCw,
   RotateCw,
   Trash2,
-  UserRound,
   Users,
   Zap,
 } from 'lucide-react'
@@ -63,7 +62,6 @@ const POLL_INTERVAL_MS = 5000
 
 const GROUP_ICON: Record<PendingGroupKey, React.ComponentType<{ className?: string }>> = {
   incident: FileText,
-  stop: UserRound,
   offender: Users,
   link: Link2,
   photo: ImageIcon,
@@ -71,7 +69,6 @@ const GROUP_ICON: Record<PendingGroupKey, React.ComponentType<{ className?: stri
 
 const GROUP_ITEM_LABEL: Record<PendingGroupKey, string> = {
   incident: 'Ocorrência',
-  stop: 'Abordagem',
   offender: 'Meliante',
   link: 'Vínculo',
   photo: 'Foto',

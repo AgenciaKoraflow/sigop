@@ -12,7 +12,6 @@ import {
   enqueueSync,
   saveSetting,
   deleteDraftIncident,
-  deleteDraftStop,
 } from '@/lib/db'
 import type { SyncQueueItem, SyncPriority } from '@/lib/db/schema'
 import { detectConflict } from '@/lib/sync/conflict'
@@ -104,11 +103,6 @@ async function clearSyncedDraft(item: SyncQueueItem): Promise<void> {
     if (draft && draft.updated_at <= item.created_at) {
       await deleteDraftIncident(item.id)
       await db.delete('offline_settings', `incident:offenders:${item.id}`)
-    }
-  } else if (item.entity_type === 'stop') {
-    const draft = await db.get('draft_stops', item.id)
-    if (draft && draft.updated_at <= item.created_at) {
-      await deleteDraftStop(item.id)
     }
   }
 }
@@ -209,15 +203,12 @@ function remoteAlreadyMatches(
  * our own earlier write is what moved the version — that's not a conflict.
  */
 async function assertNoConflict(
-  table: 'incidents' | 'stops' | 'offenders',
-  store: 'draft_incidents' | 'draft_stops',
+  table: 'incidents' | 'offenders',
   id: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
   const db = await getDB()
-  const draft = store === 'draft_incidents'
-    ? await db.get('draft_incidents', id)
-    : await db.get('draft_stops', id)
+  const draft = await db.get('draft_incidents', id)
   const baseline = draft?.remote_version
   if (baseline == null) return // no known baseline — cannot tell, let it through
 
@@ -238,21 +229,8 @@ async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise
       if (error) throw new Error(error.message)
     } else if (operation === 'update') {
       const { id, ...data } = payload
-      await assertNoConflict('incidents', 'draft_incidents', id as string, data)
+      await assertNoConflict('incidents', id as string, data)
       const { error } = await supabase.from('incidents').update(data).eq('id', id as string)
-      if (error) throw new Error(error.message)
-    }
-    return
-  }
-
-  if (entity_type === 'stop') {
-    if (operation === 'create') {
-      const { error } = await supabase.from('stops').upsert(payload, { onConflict: 'id' })
-      if (error) throw new Error(error.message)
-    } else if (operation === 'update') {
-      const { id, ...data } = payload
-      await assertNoConflict('stops', 'draft_stops', id as string, data)
-      const { error } = await supabase.from('stops').update(data).eq('id', id as string)
       if (error) throw new Error(error.message)
     }
     return
@@ -271,11 +249,9 @@ async function syncItem(item: SyncQueueItem, supabase: UntypedSupabase): Promise
   }
 
   if (entity_type === 'link') {
-    const table =
-      (payload.table as string) === 'stop_offenders' ? 'stop_offenders' : 'incident_offenders'
     const data = { ...payload }
     delete data.table
-    const { error } = await supabase.from(table).upsert(data)
+    const { error } = await supabase.from('incident_offenders').upsert(data)
     if (error && !error.message.includes('duplicate')) throw new Error(error.message)
     return
   }

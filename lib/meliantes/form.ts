@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { CPF_REGEX, maskCpf } from '@/lib/abordagens/form'
 
 /**
  * Shared schema, constants and helpers for the offender ("meliante") registry
@@ -9,7 +8,15 @@ import { CPF_REGEX, maskCpf } from '@/lib/abordagens/form'
  * user-facing copy stays in Portuguese.
  */
 
-export { CPF_REGEX, maskCpf }
+export const CPF_REGEX = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/
+
+export function maskCpf(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 3) return d
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
+}
 
 // ---------------------------------------------------------------------------
 // Constants

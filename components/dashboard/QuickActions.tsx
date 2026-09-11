@@ -8,15 +8,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { INCIDENT_TYPE_OPTIONS } from '@/lib/ocorrencias/form'
 
 /**
- * The single "open new record" entry point at the top of the operational
- * panel. Clicking it drops down every record type — the incident types plus
- * "Abordagem" — instead of splitting into separate incident/stop buttons.
+ * The single "open new record" entry point. Clicking it drops down every
+ * record type, including "Abordagem" — just one more `incidents.type` value,
+ * not a separate flow.
  */
 export function QuickActions() {
   const router = useRouter()
@@ -31,7 +30,7 @@ export function QuickActions() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Ocorrência</DropdownMenuLabel>
+        <DropdownMenuLabel>Tipo de registro</DropdownMenuLabel>
         {INCIDENT_TYPE_OPTIONS.map((option) => (
           <DropdownMenuItem
             key={option.value}
@@ -41,11 +40,6 @@ export function QuickActions() {
             {option.label}
           </DropdownMenuItem>
         ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => router.push('/abordagens/nova')}>
-          <span className="mr-1">🧍</span>
-          Abordagem
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -1,7 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type {
   DraftIncident,
-  DraftStop,
   PendingPhoto,
   SyncQueueItem,
   RecentRecordCache,
@@ -20,11 +19,6 @@ interface SigopDB extends DBSchema {
   draft_incidents: {
     key: string
     value: DraftIncident
-    indexes: { 'by-status': string }
-  }
-  draft_stops: {
-    key: string
-    value: DraftStop
     indexes: { 'by-status': string }
   }
   sync_queue: {
@@ -63,10 +57,6 @@ export function getDB() {
         // draft_incidents
         const incidentStore = db.createObjectStore('draft_incidents', { keyPath: 'id' })
         incidentStore.createIndex('by-status', 'status')
-
-        // draft_stops
-        const stopStore = db.createObjectStore('draft_stops', { keyPath: 'id' })
-        stopStore.createIndex('by-status', 'status')
 
         // sync_queue
         const queueStore = db.createObjectStore('sync_queue', { keyPath: 'id' })
@@ -111,29 +101,6 @@ export async function listDraftIncidents() {
 export async function deleteDraftIncident(id: string) {
   const db = await getDB()
   await db.delete('draft_incidents', id)
-}
-
-// =============================================
-// Stop drafts
-// =============================================
-export async function saveDraftStop(draft: DraftStop) {
-  const db = await getDB()
-  await db.put('draft_stops', draft)
-}
-
-export async function getDraftStop(id: string) {
-  const db = await getDB()
-  return db.get('draft_stops', id)
-}
-
-export async function listDraftStops() {
-  const db = await getDB()
-  return db.getAll('draft_stops')
-}
-
-export async function deleteDraftStop(id: string) {
-  const db = await getDB()
-  await db.delete('draft_stops', id)
 }
 
 // =============================================
@@ -266,7 +233,6 @@ export async function discardQueueItem(id: string) {
   await Promise.all([
     db.delete('sync_queue', id),
     db.delete('draft_incidents', id),
-    db.delete('draft_stops', id),
     db.delete('offline_settings', `incident:offenders:${id}`),
   ])
 }
@@ -295,7 +261,6 @@ export async function clearOfflineData() {
   const db = await getDB()
   await Promise.all([
     db.clear('draft_incidents'),
-    db.clear('draft_stops'),
     db.clear('sync_queue'),
     db.clear('pending_photos'),
     db.clear('recent_records_cache'),
@@ -312,7 +277,7 @@ export async function cacheRecords(records: RecentRecordCache[]) {
   await tx.done
 }
 
-export async function listRecentCache(type?: 'incident' | 'stop') {
+export async function listRecentCache(type?: 'incident') {
   const db = await getDB()
   if (type) return db.getAllFromIndex('recent_records_cache', 'by-type', type)
   return db.getAll('recent_records_cache')

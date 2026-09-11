@@ -14,27 +14,14 @@ import {
   type OffenderDetail,
 } from '@/lib/meliantes/data'
 import { offenderDisplayName } from '@/lib/meliantes/form'
-import { stopOutcomeLabel } from '@/lib/abordagens/form'
 import { offenderRoleLabel } from '@/lib/ocorrencias/form'
-import {
-  INCIDENT_TYPE_LABELS,
-  STOP_TYPE_LABELS,
-} from '@/lib/dashboard/labels'
+import { INCIDENT_TYPE_LABELS } from '@/lib/dashboard/labels'
 import { FormMeliante } from '@/components/meliantes/FormMeliante'
 import { PhotoGallery } from '@/components/fotos/PhotoGallery'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-
-function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return format(new Date(iso), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
-  } catch {
-    return '—'
-  }
-}
 
 function fmtDay(iso: string | null): string {
   if (!iso) return '—'
@@ -118,10 +105,11 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
     )
   }
 
-  const { offender, stops, incidents, photos, isLocalOnly } = detail
+  const { offender, incidents, photos, isLocalOnly } = detail
   const name = offenderDisplayName(offender)
   const mainPhoto = photos.find((photo) => (photo.sortOrder ?? 0) === 0) ?? photos[0]
   const mainPhotoUrl = mainPhoto?.url ?? offender.main_photo_url ?? null
+  const stopsCount = incidents.filter((incident) => incident.type === 'stop').length
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-12">
@@ -151,11 +139,11 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
           <div className="flex flex-wrap gap-2 pt-1">
             <Badge variant="secondary" className="gap-1">
               <ShieldAlert className="h-3 w-3" />
-              {stops.length} {stops.length === 1 ? 'abordagem' : 'abordagens'}
+              {stopsCount} {stopsCount === 1 ? 'abordagem' : 'abordagens'}
             </Badge>
             <Badge variant="outline" className="gap-1">
               <FileText className="h-3 w-3" />
-              {incidents.length} {incidents.length === 1 ? 'ocorrência' : 'ocorrências'}
+              {incidents.length} {incidents.length === 1 ? 'registro' : 'registros'}
             </Badge>
           </div>
         </div>
@@ -179,64 +167,7 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
         </dl>
       </section>
 
-      {/* Histórico de abordagens ------------------------------------ */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-ink">
-          Histórico de abordagens{' '}
-          <span className="text-sm font-normal text-ink-muted">({stops.length})</span>
-        </h2>
-        {stops.length === 0 ? (
-          <EmptyRow>Nenhuma abordagem vinculada.</EmptyRow>
-        ) : (
-          <ul className="space-y-2">
-            {stops.map((stop) => (
-              <li key={stop.linkId}>
-                <Link
-                  href={`/abordagens/${stop.stopId}`}
-                  className="block rounded-card border border-content-border bg-white p-3 transition-colors hover:border-brand/40"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant={stop.type === 'in_flagrante' ? 'in_flagrante' : 'secondary'}
-                    >
-                      {STOP_TYPE_LABELS[stop.type ?? ''] ?? stop.type ?? '—'}
-                    </Badge>
-                    <span className="text-xs text-ink-secondary">
-                      {fmtDate(stop.stoppedAt)}
-                    </span>
-                    <span className="ml-auto text-xs font-medium text-ink-secondary">
-                      {stopOutcomeLabel(stop.outcome)}
-                    </span>
-                  </div>
-                  {fmtAddress([
-                    stop.addressStreet,
-                    stop.addressDistrict,
-                    stop.addressCity,
-                  ]) && (
-                    <p className="mt-1.5 flex items-center gap-1 text-xs text-ink-muted">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      <span className="truncate">
-                        {fmtAddress([
-                          stop.addressStreet,
-                          stop.addressDistrict,
-                          stop.addressCity,
-                        ])}
-                      </span>
-                    </p>
-                  )}
-                  {stop.description && (
-                    <p className="mt-1.5 line-clamp-2 text-sm text-ink-secondary">
-                      {stop.description}
-                    </p>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* Histórico de ocorrências --------------------------------- */}
+      {/* Ocorrências vinculadas ------------------------------------ */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-ink">
           Ocorrências vinculadas{' '}

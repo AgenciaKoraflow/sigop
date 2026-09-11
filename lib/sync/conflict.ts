@@ -17,7 +17,7 @@ export interface ConflictInfo {
   detectedAt: string
 }
 
-type VersionedTable = 'incidents' | 'stops' | 'offenders'
+type VersionedTable = 'incidents' | 'offenders'
 
 export async function detectConflict(
   localId: string,

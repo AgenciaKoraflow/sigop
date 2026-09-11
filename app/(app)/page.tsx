@@ -3,23 +3,15 @@
 import { AlertTriangle } from 'lucide-react'
 import { useDashboardData } from '@/hooks/use-dashboard-data'
 import { QuickActions } from '@/components/dashboard/QuickActions'
-import { KpiRow } from '@/components/dashboard/KpiRow'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
 import { DemoBanner, OfflineBanner } from '@/components/dashboard/DashboardBanners'
+import { Card } from '@/components/ui/card'
 
 export default function DashboardPage() {
   const { data, isLoading, isError } = useDashboardData()
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-0.5">
-          <h1 className="text-2xl font-bold text-ink">Painel Operacional</h1>
-          <p className="text-sm text-ink-secondary">Visão do dia</p>
-        </div>
-        <QuickActions />
-      </div>
-
       {data?.fromCache && <OfflineBanner />}
       {data?.isDemo && <DemoBanner />}
       {isError && !data && (
@@ -29,7 +21,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <KpiRow kpis={data?.kpis} loading={isLoading} />
+      <Card className="flex flex-col items-center gap-3 rounded-card border-content-border p-8 text-center shadow-card sm:p-12">
+        <h1 className="text-2xl font-bold text-ink">Bem-vindo ao SIGOP</h1>
+        <p className="max-w-md text-sm text-ink-secondary">
+          Registre uma nova ocorrência ou abordagem em poucos passos.
+        </p>
+        <div className="mt-2">
+          <QuickActions />
+        </div>
+      </Card>
 
       <RecentActivity items={data?.items ?? []} loading={isLoading} />
     </div>

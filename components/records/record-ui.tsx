@@ -6,15 +6,8 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TableCell, TableRow } from '@/components/ui/table'
-import { cn } from '@/lib/utils/cn'
 import { SYNC_LABELS } from '@/lib/dashboard/labels'
-import {
-  RECORD_CONFIG,
-  outcomeBadgeClass,
-  type RecordListItem,
-  type RecordVariant,
-  type SortDirection,
-} from '@/lib/records/config'
+import type { RecordListItem, SortDirection } from '@/lib/records/config'
 
 export function formatDateTime(iso: string): string {
   try {
@@ -44,31 +37,6 @@ export function SortIcon({
   )
 }
 
-/** Outcome badge (stops). Incidents have no secondary column. */
-export function SecondaryBadge({
-  variant,
-  value,
-}: {
-  variant: RecordVariant
-  value: string | null
-}) {
-  if (!RECORD_CONFIG[variant].hasSecondary) return null
-  if (!value) return <span className="text-xs text-ink-muted">—</span>
-
-  const label = RECORD_CONFIG[variant].secondaryLabels[value] ?? value
-
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-badge px-2 py-0.5 text-[11px] font-semibold',
-        outcomeBadgeClass(value),
-      )}
-    >
-      {label}
-    </span>
-  )
-}
-
 /** Synchronisation status badge — local drafts get an extra "Local" tag. */
 export function SyncBadge({ item }: { item: RecordListItem }) {
   if (item.isLocal) {
@@ -90,7 +58,7 @@ export function TableSkeletonRow() {
       <TableCell>
         <Skeleton className="h-10 w-10 rounded-full" />
       </TableCell>
-      {Array.from({ length: 6 }).map((_, index) => (
+      {Array.from({ length: 5 }).map((_, index) => (
         <TableCell key={index}>
           <Skeleton className="h-4 w-full max-w-[120px]" />
         </TableCell>

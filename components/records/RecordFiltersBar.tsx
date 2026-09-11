@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils/cn'
-import type { PeriodKey, RecordConfig, RecordFilters } from '@/lib/records/config'
+import { RECORD_CONFIG, type PeriodKey, type RecordFilters } from '@/lib/records/config'
 
 export type ViewMode = 'table' | 'cards'
 
@@ -26,7 +26,6 @@ const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
 const ALL = '__all__'
 
 interface Props {
-  cfg: RecordConfig
   filters: RecordFilters
   search: string
   onSearch: (value: string) => void
@@ -38,7 +37,6 @@ interface Props {
 }
 
 export function RecordFiltersBar({
-  cfg,
   filters,
   search,
   onSearch,
@@ -56,7 +54,7 @@ export function RecordFiltersBar({
           <Input
             value={search}
             onChange={(event) => onSearch(event.target.value)}
-            placeholder={cfg.searchPlaceholder}
+            placeholder={RECORD_CONFIG.searchPlaceholder}
             className="pl-9"
             aria-label="Buscar"
           />
@@ -110,34 +108,13 @@ export function RecordFiltersBar({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>Todos os tipos</SelectItem>
-            {cfg.typeOptions.map((option) => (
+            {RECORD_CONFIG.typeOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-
-        {cfg.hasSecondary && (
-          <Select
-            value={filters.secondary ?? ALL}
-            onValueChange={(value) =>
-              onPatch({ secondary: value === ALL ? undefined : value })
-            }
-          >
-            <SelectTrigger className="h-9 w-[180px]">
-              <SelectValue placeholder={cfg.secondaryFilterLabel} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{`${cfg.secondaryFilterLabel}: todos`}</SelectItem>
-              {cfg.secondaryOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
 
         {filters.period === 'custom' && (
           <div className="flex items-center gap-2">

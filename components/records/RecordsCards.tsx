@@ -5,16 +5,15 @@ import { ImageIcon, MapPin } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils/cn'
 import { typeBadgeClass, typeLabel } from '@/lib/dashboard/labels'
-import type { RecordConfig, RecordListItem } from '@/lib/records/config'
-import { SecondaryBadge, SyncBadge, formatDateTime, isDraftRow } from './record-ui'
+import { RECORD_CONFIG, type RecordListItem } from '@/lib/records/config'
+import { SyncBadge, formatDateTime, isDraftRow } from './record-ui'
 
 interface Props {
-  cfg: RecordConfig
   items: RecordListItem[]
   loading: boolean
 }
 
-export function RecordsCards({ cfg, items, loading }: Props) {
+export function RecordsCards({ items, loading }: Props) {
   if (loading) {
     return (
       <div className="grid gap-3 sm:grid-cols-2">
@@ -38,7 +37,7 @@ export function RecordsCards({ cfg, items, loading }: Props) {
   if (items.length === 0) {
     return (
       <div className="rounded-card border border-content-border bg-content-surface py-16 text-center text-sm text-ink-secondary shadow-card">
-        {cfg.emptyLabel}
+        {RECORD_CONFIG.emptyLabel}
       </div>
     )
   }
@@ -47,7 +46,7 @@ export function RecordsCards({ cfg, items, loading }: Props) {
     <div className="grid gap-3 sm:grid-cols-2">
       {items.map((item) => (
         <Link
-          key={`${item.variant}-${item.id}`}
+          key={item.id}
           href={item.href}
           className={cn(
             'group overflow-hidden rounded-card border border-content-border bg-content-surface shadow-card transition-colors hover:border-brand/40',
@@ -82,9 +81,8 @@ export function RecordsCards({ cfg, items, loading }: Props) {
                   typeBadgeClass(item.type),
                 )}
               >
-                {typeLabel(item.variant, item.type)}
+                {typeLabel(item.type)}
               </span>
-              <SecondaryBadge variant={item.variant} value={item.secondary} />
             </div>
 
             <p className="line-clamp-2 min-h-[2.5rem] text-sm text-ink-secondary">

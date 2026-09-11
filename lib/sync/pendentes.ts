@@ -2,14 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import {
   deleteDraftIncident,
-  deleteDraftStop,
   discardPendingPhoto,
   discardQueueItem,
   enqueueSync,
   getDB,
   listAllQueue,
   listDraftIncidents,
-  listDraftStops,
   listPendingPhotos,
   readSetting,
   removeFromQueue,
@@ -38,7 +36,7 @@ function untyped(): SupabaseClient {
 // ---------------------------------------------------------------------------
 // Shapes consumed by the UI
 // ---------------------------------------------------------------------------
-export type PendingGroupKey = 'incident' | 'stop' | 'offender' | 'link' | 'photo'
+export type PendingGroupKey = 'incident' | 'offender' | 'link' | 'photo'
 
 export interface PendingItemView {
   /** Local id (queue item id, or photo id). */
@@ -71,8 +69,8 @@ export interface ConflictFieldDiff {
 
 export interface ConflictView {
   id: string
-  table: 'incidents' | 'stops'
-  entityType: Extract<EntityType, 'incident' | 'stop'>
+  table: 'incidents'
+  entityType: Extract<EntityType, 'incident'>
   title: string
   localVersion: number
   remoteVersion: number
@@ -103,13 +101,12 @@ export interface PendingSnapshot {
 // ---------------------------------------------------------------------------
 const GROUP_LABELS: Record<PendingGroupKey, string> = {
   incident: 'Ocorrências',
-  stop: 'Abordagens',
   offender: 'Meliantes',
   link: 'Vínculos',
   photo: 'Fotos',
 }
 
-const GROUP_ORDER: PendingGroupKey[] = ['incident', 'stop', 'photo', 'offender', 'link']
+const GROUP_ORDER: PendingGroupKey[] = ['incident', 'photo', 'offender', 'link']
 
 const FIELD_LABELS: Record<string, string> = {
   type: 'Tipo',
@@ -117,8 +114,6 @@ const FIELD_LABELS: Record<string, string> = {
   status: 'Status',
   description: 'Descrição',
   occurred_at: 'Data da ocorrência',
-  stopped_at: 'Data da abordagem',
-  outcome: 'Resultado',
   address_street: 'Logradouro',
   address_number: 'Número',
   address_district: 'Bairro',
@@ -150,8 +145,6 @@ function editHrefFor(entityType: EntityType, id: string): string | null {
   switch (entityType) {
     case 'incident':
       return `/ocorrencias/${id}`
-    case 'stop':
-      return `/abordagens/${id}`
     case 'offender':
       return `/meliantes/${id}`
     default:
@@ -231,11 +224,11 @@ function buildDiffs(
 async function loadConflicts(isOnline: boolean): Promise<ConflictView[]> {
   if (!isOnline) return []
 
-  const [incidents, stops] = await Promise.all([listDraftIncidents(), listDraftStops()])
+  const incidents = await listDraftIncidents()
   const candidates: {
     draftId: string
-    table: 'incidents' | 'stops'
-    entityType: 'incident' | 'stop'
+    table: 'incidents'
+    entityType: 'incident'
     localVersion: number
     payload: Record<string, unknown>
   }[] = []
@@ -246,16 +239,6 @@ async function loadConflicts(isOnline: boolean): Promise<ConflictView[]> {
       draftId: draft.id,
       table: 'incidents',
       entityType: 'incident',
-      localVersion: draft.remote_version,
-      payload: draft.payload,
-    })
-  }
-  for (const draft of stops) {
-    if (draft.operation !== 'update' || draft.remote_version == null) continue
-    candidates.push({
-      draftId: draft.id,
-      table: 'stops',
-      entityType: 'stop',
       localVersion: draft.remote_version,
       payload: draft.payload,
     })
@@ -284,20 +267,14 @@ async function loadConflicts(isOnline: boolean): Promise<ConflictView[]> {
       if (diffs.length === 0) {
         try {
           const queued = await (await getDB()).get('sync_queue', candidate.draftId)
-          if (!queued) {
-            if (candidate.table === 'incidents') await deleteDraftIncident(candidate.draftId)
-            else await deleteDraftStop(candidate.draftId)
-          }
+          if (!queued) await deleteDraftIncident(candidate.draftId)
         } catch {
           /* IndexedDB unavailable — ignore. */
         }
         return null
       }
 
-      const title =
-        candidate.table === 'incidents'
-          ? `Ocorrência ${String(info.remoteData.internal_number ?? candidate.draftId.slice(0, 8))}`
-          : `Abordagem ${String(info.remoteData.internal_number ?? candidate.draftId.slice(0, 8))}`
+      const title = `Ocorrência ${String(info.remoteData.internal_number ?? candidate.draftId.slice(0, 8))}`
 
       const view: ConflictView = {
         id: candidate.draftId,
@@ -424,10 +401,9 @@ export async function resolveConflictKeepLocal(
   await writeConflictAudit(conflict, 'keep_local', performedBy)
 
   const db = await getDB()
-  const store = conflict.table === 'incidents' ? 'draft_incidents' : 'draft_stops'
-  const draft = await db.get(store, conflict.id)
+  const draft = await db.get('draft_incidents', conflict.id)
   if (draft) {
-    await db.put(store, {
+    await db.put('draft_incidents', {
       ...draft,
       status: 'pending',
       last_error: null,
@@ -461,6 +437,8 @@ export async function resolveConflictUseServer(
   await writeConflictAudit(conflict, 'use_server', performedBy)
 
   const db = await getDB()
-  const store = conflict.table === 'incidents' ? 'draft_incidents' : 'draft_stops'
-  await Promise.all([db.delete(store, conflict.id), removeFromQueue(conflict.id)])
+  await Promise.all([
+    db.delete('draft_incidents', conflict.id),
+    removeFromQueue(conflict.id),
+  ])
 }
