@@ -68,6 +68,14 @@
 
 @layer base {
   * { @apply border-content-border; }
+  html {
+    /* Keeps the browser's "scroll focused input into view" (native focus
+       scroll and .scrollIntoView()) from landing a field under the fixed
+       topbar or under a form's fixed footer — both sit above the page
+       content and would otherwise hide the input being typed. */
+    scroll-padding-top: theme('spacing.topbar');
+    scroll-padding-bottom: 7rem;
+  }
   body {
     @apply bg-content-bg text-ink font-sans antialiased;
   }

@@ -21,6 +21,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#3b5fc0",
+  // Keyboard opening resizes the layout viewport instead of just overlaying
+  // it — otherwise the fixed header/footer stay put while the page scrolls,
+  // hiding the focused input behind them on mobile.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
