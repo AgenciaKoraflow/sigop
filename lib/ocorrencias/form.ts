@@ -291,3 +291,85 @@ export function parseGoogleMapsUrl(input: string): { lat: number; lng: number } 
 export function formatCoord(value: number | null): string {
   return value == null ? '—' : value.toFixed(6)
 }
+
+// ---------------------------------------------------------------------------
+// Reverse geocoding (Nominatim) — coordinates -> address
+// ---------------------------------------------------------------------------
+const BRAZIL_STATE_TO_UF: Record<string, string> = {
+  acre: 'AC',
+  alagoas: 'AL',
+  amapá: 'AP',
+  amazonas: 'AM',
+  bahia: 'BA',
+  ceará: 'CE',
+  'distrito federal': 'DF',
+  'espírito santo': 'ES',
+  goiás: 'GO',
+  maranhão: 'MA',
+  'mato grosso': 'MT',
+  'mato grosso do sul': 'MS',
+  'minas gerais': 'MG',
+  pará: 'PA',
+  paraíba: 'PB',
+  paraná: 'PR',
+  pernambuco: 'PE',
+  piauí: 'PI',
+  'rio de janeiro': 'RJ',
+  'rio grande do norte': 'RN',
+  'rio grande do sul': 'RS',
+  rondônia: 'RO',
+  roraima: 'RR',
+  'santa catarina': 'SC',
+  'são paulo': 'SP',
+  sergipe: 'SE',
+  tocantins: 'TO',
+}
+
+function stateNameToUf(name: string | undefined): string {
+  if (!name) return ''
+  const uf = BRAZIL_STATE_TO_UF[name.trim().toLowerCase()]
+  return uf ?? name.slice(0, 2).toUpperCase()
+}
+
+export interface ReverseGeocodeAddress {
+  address_street: string
+  address_number: string
+  address_district: string
+  address_city: string
+  address_state: string
+  address_zip: string
+}
+
+export async function fetchReverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeAddress> {
+  const url =
+    `https://nominatim.openstreetmap.org/reverse` +
+    `?lat=${lat}&lon=${lng}&format=jsonv2&accept-language=pt-BR`
+
+  const response = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (!response.ok) throw new Error('Não foi possível consultar o endereço para essas coordenadas')
+
+  const data = (await response.json()) as {
+    address?: {
+      road?: string
+      house_number?: string
+      suburb?: string
+      neighbourhood?: string
+      city?: string
+      town?: string
+      village?: string
+      state?: string
+      postcode?: string
+    }
+  }
+  const address = data.address
+  if (!address) throw new Error('Endereço não encontrado para essas coordenadas')
+
+  return {
+    address_street: address.road ?? '',
+    address_number: address.house_number ?? '',
+    address_district: address.suburb ?? address.neighbourhood ?? '',
+    address_city: address.city ?? address.town ?? address.village ?? '',
+    address_state: stateNameToUf(address.state),
+    address_zip: address.postcode ? maskCep(address.postcode) : '',
+  }
+}

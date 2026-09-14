@@ -26,6 +26,7 @@ import {
   MAX_PHOTOS_PER_INCIDENT,
   OFFENDER_ROLE_OPTIONS,
   emptyIncidentForm,
+  fetchReverseGeocode,
   fetchViaCep,
   formatCoord,
   fromIncidentPayload,
@@ -140,6 +141,8 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
   // Google Maps link
   const [gmapsInput, setGmapsInput] = React.useState('')
   const [gmapsError, setGmapsError] = React.useState<string | null>(null)
+  const [geocodeLoading, setGeocodeLoading] = React.useState(false)
+  const [geocodeError, setGeocodeError] = React.useState<string | null>(null)
 
   const latitude = watch('latitude')
   const longitude = watch('longitude')
@@ -378,16 +381,34 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
     }
   }
 
-  const extractFromGmaps = () => {
+  const extractFromGmaps = async () => {
     const coords = parseGoogleMapsUrl(gmapsInput)
     if (!coords) {
       setGmapsError('Não encontramos coordenadas nesse link. Cole a URL completa do Google Maps.')
       return
     }
     setGmapsError(null)
+    setGeocodeError(null)
     setValue('latitude', Number(coords.lat.toFixed(7)), { shouldDirty: true })
     setValue('longitude', Number(coords.lng.toFixed(7)), { shouldDirty: true })
     setValue('gmaps_link', gmapsInput.trim(), { shouldDirty: true })
+
+    setGeocodeLoading(true)
+    try {
+      const address = await fetchReverseGeocode(coords.lat, coords.lng)
+      setValue('address_street', address.address_street, { shouldDirty: true })
+      setValue('address_number', address.address_number, { shouldDirty: true })
+      setValue('address_district', address.address_district, { shouldDirty: true })
+      setValue('address_city', address.address_city, { shouldDirty: true })
+      setValue('address_state', address.address_state, { shouldDirty: true })
+      setValue('address_zip', address.address_zip, { shouldDirty: true })
+    } catch (error) {
+      setGeocodeError(
+        error instanceof Error ? error.message : 'Não foi possível preencher o endereço automaticamente.',
+      )
+    } finally {
+      setGeocodeLoading(false)
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -689,8 +710,8 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
                 onChange={(event) => setGmapsInput(event.target.value)}
               />
             </Field>
-            <Button type="button" variant="outline" onClick={extractFromGmaps}>
-              <Link2 className="h-4 w-4" />
+            <Button type="button" variant="outline" onClick={extractFromGmaps} disabled={geocodeLoading}>
+              {geocodeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
               Extrair localização
             </Button>
             {gmapsError ? (
@@ -700,6 +721,14 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
                 Lat {formatCoord(latitude)} · Long {formatCoord(longitude)}
               </p>
             ) : null}
+            {geocodeLoading && (
+              <p className="text-xs text-ink-secondary">Buscando endereço para essas coordenadas…</p>
+            )}
+            {geocodeError && !geocodeLoading && (
+              <p className="text-xs font-medium text-sync-pending-text">
+                {geocodeError} As coordenadas foram salvas normalmente — preencha o endereço na aba ao lado, se necessário.
+              </p>
+            )}
           </TabsContent>
         </Tabs>
       </section>
