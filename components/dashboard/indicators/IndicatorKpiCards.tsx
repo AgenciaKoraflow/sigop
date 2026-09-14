@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  AlertTriangle,
   CalendarRange,
   FileText,
   Flame,
@@ -38,15 +37,8 @@ const CARDS: CardDef[] = [
     iconWrap: 'bg-kpi-running-bg text-kpi-running-icon',
   },
   {
-    key: 'flagrante',
-    label: 'Flagrantes registrados',
-    hint: 'Ocorrências + abordagens',
-    icon: AlertTriangle,
-    iconWrap: 'bg-kpi-backlog-bg text-kpi-backlog-icon',
-  },
-  {
     key: 'flagranteIncidents',
-    label: 'Ocorrências em flagrante',
+    label: 'Flagrantes registrados',
     hint: 'No período',
     icon: Flame,
     iconWrap: 'bg-kpi-pending-bg text-kpi-pending-icon',

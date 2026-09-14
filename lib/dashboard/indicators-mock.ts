@@ -92,7 +92,6 @@ export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicat
     .sort((a, b) => b.count - a.count)
 
   const flagranteIncidents = byType.find((t) => t.type === 'in_flagrante')?.count ?? 0
-  const flagranteStops = Math.round(totalStops * 0.12)
 
   const composition = [
     { key: 'incidents' as const, label: 'Ocorrências', count: totalIncidents },
@@ -131,7 +130,6 @@ export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicat
     kpis: {
       totalIncidents,
       totalStops,
-      flagrante: flagranteIncidents + flagranteStops,
       flagranteIncidents,
       avgIncidentsPerDay:
         rangeDays > 0 ? Math.round((totalIncidents / rangeDays) * 10) / 10 : totalIncidents,

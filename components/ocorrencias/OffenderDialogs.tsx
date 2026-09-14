@@ -22,7 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { initials } from '@/hooks/use-current-user'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { PHOTO_BUCKET } from '@/lib/fotos/urls'
-import { MAX_PHOTOS_PER_OFFENDER } from '@/lib/meliantes/form'
+import { MAX_PHOTOS_PER_OFFENDER, maskCpf } from '@/lib/meliantes/form'
 import type { LinkedOffender } from '@/lib/ocorrencias/form'
 
 // ---------------------------------------------------------------------------
@@ -310,9 +310,10 @@ export function CreateOffenderDialog({
               <Input
                 id="offender-cpf"
                 value={cpf}
-                onChange={(event) => setCpf(event.target.value)}
+                onChange={(event) => setCpf(maskCpf(event.target.value))}
                 inputMode="numeric"
                 placeholder="000.000.000-00"
+                maxLength={14}
               />
             </div>
           </div>

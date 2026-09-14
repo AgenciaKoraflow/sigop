@@ -329,6 +329,7 @@ export function FormMeliante({
                 <Input
                   inputMode="numeric"
                   placeholder="999.999.999-99"
+                  maxLength={14}
                   value={field.value ?? ''}
                   onChange={(event) => field.onChange(maskCpf(event.target.value))}
                 />

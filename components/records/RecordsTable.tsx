@@ -155,7 +155,7 @@ function RecordRow({ item, onOpen }: { item: RecordListItem; onOpen: () => void 
             <Eye className="h-4 w-4" />
           </Link>
           <Link
-            href={`${item.href}/editar`}
+            href={`${item.href}?edit=1`}
             title="Editar"
             className="rounded p-1.5 text-ink-muted transition-colors hover:bg-content-bg hover:text-ink"
           >

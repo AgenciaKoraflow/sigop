@@ -130,8 +130,6 @@ export interface RecentIncidentRow {
 export interface DashboardKpiSet {
   totalIncidents: number
   totalStops: number
-  /** Flagrant incidents + flagrant stops. */
-  flagrante: number
   /** Incidents with `type = 'in_flagrante'`. */
   flagranteIncidents: number
   /** Average incidents per day across the selected range. */
@@ -159,7 +157,6 @@ interface StatsPayload {
   in_flagrante: number
   by_type: Record<string, number>
   stops_total: number
-  stops_flagrante: number
   daily: { day: string; incidents: number; stops: number }[]
   top_offenders: {
     id: string
@@ -206,7 +203,6 @@ function toIndicators(payload: StatsPayload, rangeDays: number): DashboardIndica
     kpis: {
       totalIncidents: total,
       totalStops,
-      flagrante: Number(payload.in_flagrante ?? 0) + Number(payload.stops_flagrante ?? 0),
       flagranteIncidents: Number(payload.in_flagrante ?? 0),
       avgIncidentsPerDay:
         rangeDays > 0 ? Math.round((total / rangeDays) * 10) / 10 : total,
@@ -307,8 +303,7 @@ export function buildIndicatorsCsv(
       [
         ['Total de ocorrências', k.totalIncidents],
         ['Total de abordagens', k.totalStops],
-        ['Flagrantes registrados (ocorrências + abordagens)', k.flagrante],
-        ['Ocorrências em flagrante', k.flagranteIncidents],
+        ['Flagrantes registrados', k.flagranteIncidents],
         ['Média de ocorrências/dia', k.avgIncidentsPerDay],
       ],
     ),

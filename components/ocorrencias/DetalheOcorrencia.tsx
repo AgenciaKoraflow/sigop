@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { format } from 'date-fns'
@@ -384,12 +384,13 @@ export interface DetalheOcorrenciaProps {
 
 export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { user } = useCurrentUser()
   const perms = usePermissions()
 
-  const [editing, setEditing] = React.useState(false)
+  const [editing, setEditing] = React.useState(() => searchParams.get('edit') === '1')
   const [showUpload, setShowUpload] = React.useState(false)
   const [linkOpen, setLinkOpen] = React.useState(false)
 
@@ -448,6 +449,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
           type="button"
           onClick={() => {
             setEditing(false)
+            router.replace(`/ocorrencias/${id}`)
             refresh()
           }}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-secondary transition-colors hover:text-ink"
