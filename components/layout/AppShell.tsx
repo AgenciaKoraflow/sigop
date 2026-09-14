@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
-import { SyncIndicator } from '@/components/sync/sync-indicator'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
@@ -42,7 +41,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Content area */}
       <div className="lg:pl-sidebar">
         <div className="pt-topbar">
-          <SyncIndicator />
           <main className="min-h-[calc(100vh-theme(spacing.topbar))] p-4 sm:p-6">
             {children}
           </main>

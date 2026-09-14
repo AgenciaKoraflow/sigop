@@ -1,4 +1,3 @@
-import type { SyncStatus } from '@/types/app.types'
 import { INCIDENT_TYPE_LABELS } from '@/lib/dashboard/labels'
 import { INCIDENT_TYPE_OPTIONS } from '@/lib/ocorrencias/form'
 
@@ -18,7 +17,7 @@ export type PeriodKey = 'today' | 'week' | 'month' | 'custom'
 /** Rows per page in the table view. */
 export const PAGE_SIZE = 20
 
-/** A single row in the listing, normalised from a server row or a local draft. */
+/** A single row in the listing, normalised from a server row. */
 export interface RecordListItem {
   id: string
   /** `OC-…`. */
@@ -31,9 +30,6 @@ export interface RecordListItem {
   city: string | null
   occurredAt: string
   thumbnailUrl: string | null
-  /** Set only for records still living in the local offline store. */
-  syncStatus: SyncStatus | null
-  isLocal: boolean
   href: string
 }
 

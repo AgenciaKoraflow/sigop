@@ -1,6 +1,5 @@
 import {
   BarChart2,
-  CloudOff,
   FileText,
   LayoutDashboard,
   UserCog,
@@ -22,15 +21,12 @@ export interface NavItem {
   supervisorOnly?: boolean
   /** Only visible to the administrator role. */
   adminOnly?: boolean
-  /** Render the pending-count badge next to this item. */
-  showPendingBadge?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { label: 'Ocorrências', href: '/ocorrencias', icon: FileText },
   { label: 'Meliantes', href: '/meliantes', icon: Users },
-  { label: 'Pendentes', href: '/pendentes', icon: CloudOff, showPendingBadge: true },
   { label: 'Painel', href: '/dashboard', icon: BarChart2, supervisorOnly: true },
   { label: 'Usuários', href: '/usuarios', icon: UserCog, adminOnly: true },
 ]

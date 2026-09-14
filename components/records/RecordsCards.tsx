@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils/cn'
 import { typeBadgeClass, typeLabel } from '@/lib/dashboard/labels'
 import { RECORD_CONFIG, type RecordListItem } from '@/lib/records/config'
-import { SyncBadge, formatDateTime, isDraftRow } from './record-ui'
+import { formatDateTime } from './record-ui'
 
 interface Props {
   items: RecordListItem[]
@@ -48,10 +48,7 @@ export function RecordsCards({ items, loading }: Props) {
         <Link
           key={item.id}
           href={item.href}
-          className={cn(
-            'group overflow-hidden rounded-card border border-content-border bg-content-surface shadow-card transition-colors hover:border-brand/40',
-            isDraftRow(item) && 'bg-amber-50',
-          )}
+          className="group overflow-hidden rounded-card border border-content-border bg-content-surface shadow-card transition-colors hover:border-brand/40"
         >
           <div className="relative h-40 w-full overflow-hidden bg-content-bg">
             {item.thumbnailUrl ? (
@@ -67,9 +64,6 @@ export function RecordsCards({ items, loading }: Props) {
                 <ImageIcon className="h-8 w-8 text-ink-muted" />
               </div>
             )}
-            <span className="absolute right-2 top-2">
-              <SyncBadge item={item} />
-            </span>
           </div>
 
           <div className="space-y-2 p-3">

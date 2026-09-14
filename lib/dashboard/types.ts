@@ -1,5 +1,3 @@
-import type { SyncStatus } from '@/types/app.types'
-
 /** A record shown in the "Atividade recente" feed. */
 export interface ActivityItem {
   id: string
@@ -13,18 +11,14 @@ export interface ActivityItem {
   /** `occurred_at` (falls back to `created_at`). */
   occurredAt: string
   thumbnailUrl: string | null
-  /** Set only for records still living in the local offline store. */
-  syncStatus: SyncStatus | null
   href: string
 }
 
 export interface DashboardData {
   items: ActivityItem[]
-  /** Demo payload — the database has no records and there is no local cache. */
+  /** Demo payload — the database has no records. */
   isDemo: boolean
-  /** Served from the local IndexedDB cache (offline). */
-  fromCache: boolean
-  /** ISO timestamp the payload was produced or cached. */
+  /** ISO timestamp the payload was produced. */
   generatedAt: string
 }
 

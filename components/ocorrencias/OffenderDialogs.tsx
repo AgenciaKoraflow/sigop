@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { initials } from '@/hooks/use-current-user'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
-import { deletePendingPhoto, getPhotosByEntity } from '@/lib/db'
+import { PHOTO_BUCKET } from '@/lib/fotos/urls'
 import { MAX_PHOTOS_PER_OFFENDER } from '@/lib/meliantes/form'
 import type { LinkedOffender } from '@/lib/ocorrencias/form'
 
@@ -208,8 +208,21 @@ export function CreateOffenderDialog({
   const savedRef = React.useRef(false)
 
   const discardPendingPhotos = React.useCallback(async (id: string) => {
-    const records = await getPhotosByEntity(id)
-    await Promise.all(records.map((record) => deletePendingPhoto(record.id)))
+    const supabase = createClient() as unknown as SupabaseClient
+    const { data } = await supabase
+      .from('photos')
+      .select('id, storage_path')
+      .eq('entity_type', 'offender')
+      .eq('entity_id', id)
+    const rows = (data ?? []) as { id: string; storage_path: string | null }[]
+    const paths = rows.map((row) => row.storage_path).filter((path): path is string => Boolean(path))
+    if (paths.length > 0) await supabase.storage.from(PHOTO_BUCKET).remove(paths)
+    if (rows.length > 0) {
+      await supabase
+        .from('photos')
+        .delete()
+        .in('id', rows.map((row) => row.id))
+    }
   }, [])
 
   React.useEffect(() => {

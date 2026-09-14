@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { v4 as uuidv4 } from 'uuid'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { AlertCircle, Camera, ImagePlus, Loader2, Save, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
-import { savePendingPhoto, deletePendingPhoto, getPhotosByEntity } from '@/lib/db'
-import { createQueueItem, enqueueSync, processQueue } from '@/lib/sync/queue'
+import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser, initials } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
 import { compressImage, createPreviewURL, revokePreviewURL } from '@/lib/fotos/compress'
+import { PHOTO_BUCKET } from '@/lib/fotos/urls'
 import { getOffenderDetail } from '@/lib/meliantes/data'
 import {
   MAX_PHOTOS_PER_OFFENDER,
@@ -39,6 +40,10 @@ export interface FormMelianteProps {
 }
 
 const MAIN_PHOTO_DESCRIPTION = 'Foto principal'
+
+function untyped(): SupabaseClient {
+  return createClient() as unknown as SupabaseClient
+}
 
 export function FormMeliante({
   mode,
@@ -91,20 +96,13 @@ export function FormMeliante({
         }
 
         form.reset(detail.values)
-        setExistsOnServer(!detail.isLocalOnly)
+        setExistsOnServer(true)
 
-        // A locally captured main photo (position 0) wins over the server one.
-        const local = await getPhotosByEntity(offenderId)
-        const localMain = local.find((photo) => photo.position === 0)
         if (!cancelled) {
-          if (localMain) {
-            mainPhotoIdRef.current = localMain.id
-            setMainPhotoPreview(createPreviewURL(localMain.blob))
-          } else {
-            const remoteMain =
-              detail.photos.find((photo) => (photo.sortOrder ?? 0) === 0) ?? detail.photos[0]
-            setMainPhotoRemoteUrl(remoteMain?.url ?? detail.offender.main_photo_url ?? null)
-          }
+          const remoteMain =
+            detail.photos.find((photo) => (photo.sortOrder ?? 0) === 0) ?? detail.photos[0]
+          if (remoteMain) mainPhotoIdRef.current = remoteMain.id
+          setMainPhotoRemoteUrl(remoteMain?.url ?? detail.offender.main_photo_url ?? null)
         }
       } catch {
         if (!cancelled) setLoadError(true)
@@ -131,25 +129,36 @@ export function FormMeliante({
   const handleMainPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
-    if (!file) return
+    if (!file || !user) return
 
     setMainPhotoBusy(true)
     try {
       const blob = await compressImage(file)
-      await savePendingPhoto({
-        id: mainPhotoIdRef.current,
-        entity_type: 'offender',
-        entity_id: id,
-        blob,
-        mime_type: blob.type || 'image/jpeg',
-        size_bytes: blob.size,
-        description: MAIN_PHOTO_DESCRIPTION,
-        position: 0,
-        status: 'pending',
-        sync_attempts: 0,
-        last_error: null,
-        created_at: new Date().toISOString(),
-      })
+      const supabase = untyped()
+      const objectPath = `${user.id}/offender/${id}/${mainPhotoIdRef.current}.jpg`
+
+      const { error: uploadError } = await supabase.storage
+        .from(PHOTO_BUCKET)
+        .upload(objectPath, blob, { contentType: blob.type || 'image/jpeg', upsert: true })
+      if (uploadError) throw new Error(uploadError.message)
+
+      const { error: dbError } = await supabase.from('photos').upsert(
+        {
+          id: mainPhotoIdRef.current,
+          storage_path: objectPath,
+          public_url: null,
+          entity_type: 'offender',
+          entity_id: id,
+          description: MAIN_PHOTO_DESCRIPTION,
+          sort_order: 0,
+          size_bytes: blob.size,
+          mime_type: blob.type || 'image/jpeg',
+          created_by: user.id,
+        },
+        { onConflict: 'id' },
+      )
+      if (dbError) throw new Error(dbError.message)
+
       setMainPhotoPreview((prev) => {
         if (prev) revokePreviewURL(prev)
         return createPreviewURL(blob)
@@ -163,7 +172,16 @@ export function FormMeliante({
   }
 
   const removeMainPhoto = async () => {
-    await deletePendingPhoto(mainPhotoIdRef.current)
+    const supabase = untyped()
+    const { data } = await supabase
+      .from('photos')
+      .select('storage_path')
+      .eq('id', mainPhotoIdRef.current)
+      .maybeSingle()
+    const path = (data as { storage_path: string | null } | null)?.storage_path
+    if (path) await supabase.storage.from(PHOTO_BUCKET).remove([path])
+    await supabase.from('photos').delete().eq('id', mainPhotoIdRef.current)
+
     setMainPhotoPreview((prev) => {
       if (prev) revokePreviewURL(prev)
       return null
@@ -189,17 +207,19 @@ export function FormMeliante({
       try {
         const operation: 'create' | 'update' = existsOnServer ? 'update' : 'create'
         const payload = toOffenderPayload(id, values, user.id, operation)
+        const supabase = untyped()
 
-        await enqueueSync(createQueueItem('offender', operation, payload, 1))
-
-        const online = typeof navigator !== 'undefined' && navigator.onLine
-        if (online) void processQueue().catch(() => {})
+        if (operation === 'create') {
+          const { error } = await supabase.from('offenders').insert(payload)
+          if (error) throw new Error(error.message)
+        } else {
+          const { id: payloadId, ...data } = payload
+          const { error } = await supabase.from('offenders').update(data).eq('id', payloadId as string)
+          if (error) throw new Error(error.message)
+        }
 
         toast({
           title: mode === 'create' ? 'Meliante cadastrado' : 'Cadastro atualizado',
-          description: online
-            ? 'Enviando para o servidor…'
-            : 'Sem conexão — será sincronizado automaticamente.',
         })
 
         if (onSaved) {

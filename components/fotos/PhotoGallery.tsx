@@ -1,16 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronLeft, ChevronRight, CloudOff, ImageOff, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ImageOff, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
-import { Badge } from '@/components/ui/badge'
-import { createPreviewURL, revokePreviewURL } from '@/lib/fotos/compress'
-import { getPhotosByEntity } from '@/lib/db'
-import type { PendingPhoto } from '@/lib/db/schema'
 import type { PhotoEntityType } from './PhotoUpload'
 
-/** A photo already stored on the server, reachable through a (signed) URL. */
+/** A photo stored on the server, reachable through a (signed) URL. */
 export interface RemotePhoto {
   id: string
   url: string
@@ -19,9 +15,10 @@ export interface RemotePhoto {
 }
 
 export interface PhotoGalleryProps {
-  entityId: string
   /** Kept for API symmetry with {@link PhotoUpload}; not read while rendering. */
-  entityType: PhotoEntityType
+  entityId?: string
+  /** Kept for API symmetry with {@link PhotoUpload}; not read while rendering. */
+  entityType?: PhotoEntityType
   /** Server-side photos, typically with Supabase signed URLs. */
   remotePhotos?: RemotePhoto[]
   className?: string
@@ -31,64 +28,23 @@ interface GalleryItem {
   id: string
   src: string
   description: string
-  isLocal: boolean
-  status?: PendingPhoto['status']
 }
 
-export function PhotoGallery({
-  entityId,
-  remotePhotos,
-  className,
-}: PhotoGalleryProps) {
-  const [localItems, setLocalItems] = React.useState<GalleryItem[]>([])
+export function PhotoGallery({ remotePhotos, className }: PhotoGalleryProps) {
   const [openIndex, setOpenIndex] = React.useState<number | null>(null)
 
-  // Load locally-stored (not yet synced) photos for this entity.
-  React.useEffect(() => {
-    let cancelled = false
-    const createdUrls: string[] = []
-
-    getPhotosByEntity(entityId).then((records) => {
-      if (cancelled) return
-      const locals = records
+  const items = React.useMemo<GalleryItem[]>(
+    () =>
+      (remotePhotos ?? [])
         .slice()
-        .sort((a, b) => a.position - b.position)
-        .map<GalleryItem>((record) => {
-          const src = createPreviewURL(record.blob)
-          createdUrls.push(src)
-          return {
-            id: record.id,
-            src,
-            description: record.description,
-            isLocal: true,
-            status: record.status,
-          }
-        })
-      setLocalItems(locals)
-    })
-
-    return () => {
-      cancelled = true
-      createdUrls.forEach(revokePreviewURL)
-    }
-  }, [entityId])
-
-  const items = React.useMemo<GalleryItem[]>(() => {
-    const remoteList = (remotePhotos ?? [])
-      .slice()
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-      .map<GalleryItem>((photo) => ({
-        id: photo.id,
-        src: photo.url,
-        description: photo.description ?? '',
-        isLocal: false,
-      }))
-
-    const remoteIds = new Set(remoteList.map((photo) => photo.id))
-    const localOnly = localItems.filter((photo) => !remoteIds.has(photo.id))
-
-    return [...remoteList, ...localOnly]
-  }, [remotePhotos, localItems])
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        .map((photo) => ({
+          id: photo.id,
+          src: photo.url,
+          description: photo.description ?? '',
+        })),
+    [remotePhotos],
+  )
 
   const count = items.length
 
@@ -146,15 +102,6 @@ export function PhotoGallery({
                 loading="lazy"
                 className="h-full w-full object-cover transition-transform group-hover:scale-105"
               />
-              {item.isLocal && (
-                <Badge
-                  variant="pending"
-                  className="absolute inset-x-1 bottom-1 justify-center gap-1 text-[10px]"
-                >
-                  <CloudOff className="h-3 w-3" />
-                  Foto local — aguardando sync
-                </Badge>
-              )}
             </button>
           </li>
         ))}
@@ -219,12 +166,6 @@ export function PhotoGallery({
               <span>
                 {openIndex + 1} / {count}
               </span>
-              {active.isLocal && (
-                <Badge variant="pending" className="gap-1 text-[10px]">
-                  <CloudOff className="h-3 w-3" />
-                  Foto local — aguardando sync
-                </Badge>
-              )}
               {active.description && <span>· {active.description}</span>}
             </figcaption>
           </figure>

@@ -18,21 +18,6 @@ Correções aplicadas nesta rodada estão em **Fixes** ao final.
 
 ---
 
-## Checklist offline
-
-| # | Item | Resultado | Observação |
-|---|------|-----------|------------|
-| 1 | Abrir o app sem internet após primeiro acesso | ✅ Passou *(código)* | `next-pwa` com `runtimeCaching` app-shell `NetworkFirst` (`networkTimeoutSeconds: 3`). Offline real → `fetch` falha imediatamente → cache serve sem espera. PWA só ativa em build de produção (`disable` em dev). Rotas precisam ter sido visitadas online (pré-condição do próprio teste). |
-| 2 | Criar ocorrência totalmente offline | ✅ Passou *(código)* | `FormOcorrencia` é 100% client-side. `persistDraft()` grava em `draft_incidents` (IndexedDB). Badge **"Rascunho local"** renderiza quando `localStatus === 'draft'` (após 1º autosave de 30 s ou "Salvar rascunho"). |
-| 3 | Salvar abordagem com flagrante offline | ✅ Passou *(código)* | `FormAbordagem`: campos do meliante (`subject.*`) funcionam offline; foto do abordado guardada como `Blob` em `offline_settings` (`stop:extras:<id>`); fotos gerais em `pending_photos` como `Blob`. |
-| 4 | Tirar foto offline e vincular | ✅ Passou *(código)* | `PhotoUpload`: `<input capture="environment">` → `compressImage()` → `savePendingPhoto()` (Blob em `pending_photos`), preview via `URL.createObjectURL`. Nenhum base64. |
-| 5 | Fechar e reabrir app sem internet | ✅ Passou *(código)* | Drafts e blobs persistem em IndexedDB. Telas de detalhe (`DetalheOcorrencia`/`DetalheAbordagem`) e formulários de edição têm fallback "draft local vence" antes de tentar o servidor. |
-| 6 | Indicador de sync (offline) | ✅ Passou *(código)* | `SyncIndicator` (status `offline`): _"Sem internet — seus dados serão sincronizados quando a conexão voltar"_. |
-| 7 | Voltar online | ✅ Passou *(código)* | `useOnlineStatus`: evento `online` → `syncNow()` → status `syncing` → _"Sincronizando N registros..."_ e `processQueue()` roda. Também dispara em `visibilitychange`. |
-| 8 | Sincronização das fotos | ✅ Passou *(código)* — **corrigido** | Upload já funcionava (`processPendingPhotos` → `storage.upload` no bucket privado). **Fix #1**: a exibição estava quebrada (bucket privado + `getPublicUrl`). Agora as leituras assinam URLs (`signPhotoUrls`). |
-| 9 | Ausência de duplicatas | ✅ Passou *(código)* | Toda escrita é `upsert({ onConflict: 'id' })` com UUID gerado no cliente; `removeFromQueue` após sucesso; links ignoram erro `duplicate`. Sync repetido é idempotente. |
-| 10 | Testar conflito (2 dispositivos) | ✅ Passou *(código)* — **corrigido** | **Fix #2**: antes, o `processQueue` sobrescrevia o servidor sem checar versão (a detecção só existia, e de forma frágil, na tela `/pendentes`). Agora: (a) os formulários gravam `remote_version` = `version` do servidor no momento da edição; (b) `syncItem` chama `assertNoConflict()` antes de todo `update` e joga o item para `error` com mensagem de conflito se o servidor avançou; (c) a tela `/pendentes` usa o baseline real e mostra o diff + resolução (manter local / usar servidor). |
-
 ## Checklist de segurança
 
 | # | Item | Resultado | Observação |
@@ -57,7 +42,7 @@ Não bloqueiam os testes; **Fix #3** (`sql/005_security_hardening.sql`) endereç
 |---|------|-----------|------------|
 | 15 | FCP < 3 s em 4G simulado | ⚠️ Não medido *(manual)* | Requer Lighthouse com o app servido. Tamanhos do build: `/` 200 kB, `/login` 193 kB First Load JS (dentro do normal). `/dashboard` 356 kB (Recharts) — pesado, mas não é rota de entrada. Recomenda-se rodar Lighthouse antes do rollout. |
 | 16 | Fotos após compressão < 5 MB, largura máx 1200px | ✅ Passou *(código)* | `lib/fotos/compress.ts`: `maxWidth/maxHeight = 1200` (nunca faz upscale, mantém aspect ratio), `maxSizeMB = 5` com loop de re-encode reduzindo `quality` até 0.4. Bucket também impõe `file_size_limit = 5242880`. |
-| 17 | Zero `localStorage.setItem` para dados de formulário | ✅ Passou *(código)* | `grep` por `localStorage`/`sessionStorage` em `app/`, `components/`, `lib/`, `hooks/`: **nenhuma ocorrência** (apenas comentários em `lib/db` reforçando "IndexedDB only"). Toda persistência via `idb`. |
+| 17 | Zero `localStorage.setItem` para dados de formulário | ✅ Passou *(código)* | `grep` por `localStorage`/`sessionStorage` em `app/`, `components/`, `lib/`, `hooks/`: **nenhuma ocorrência**. Formulários gravam direto no Supabase, sem persistência local. |
 
 ---
 
@@ -74,27 +59,7 @@ miniaturas do dashboard, lista de registros nem avatares de meliante.
 - Novo `lib/fotos/urls.ts` → `signPhotoUrls(client, paths)` gera signed URLs em
   lote (TTL 1 h) a partir de `storage_path`.
 - Passaram a assinar no momento da leitura: `components/ocorrencias/DetalheOcorrencia.tsx`,
-  `components/abordagens/DetalheAbordagem.tsx`, `lib/meliantes/data.ts`,
-  `lib/dashboard/data.ts`, `lib/records/data.ts`.
-- `lib/sync/queue.ts` deixou de gravar o `public_url` inútil (grava `null`;
-  `storage_path` continua sendo a fonte de verdade).
-
-### Fix #2 — Conflito de edição era sobrescrito silenciosamente no auto-sync
-
-**Causa raiz:** `processQueue` fazia `UPDATE ... WHERE id` sem checar versão. A
-detecção de conflito existia só na tela `/pendentes` e usava
-`remote_version ?? local_version` como baseline — mas `remote_version` nunca era
-populado, então o baseline era um contador local sem relação com o servidor.
-
-**Correção:**
-- `FormOcorrencia` / `FormAbordagem`: ao carregar um registro para edição,
-  guardam o `version` do servidor e o gravam em `draft.remote_version` (baseline
-  real de concorrência otimista). `useSyncQueue` recebe `baselineVersion`.
-- `lib/sync/queue.ts`: nova `assertNoConflict()` roda antes de todo `update` de
-  `incident`/`stop`; se o servidor avançou além do baseline, lança
-  `SyncConflictError` e o item vai para `error` com mensagem clara.
-- `lib/sync/pendentes.ts`: `loadConflicts` agora só considera drafts com
-  `remote_version` conhecido e usa esse valor como baseline.
+  `lib/meliantes/data.ts`, `lib/dashboard/data.ts`, `lib/records/data.ts`.
 
 ### Fix #3 — Endurecimento de segurança no banco (`sql/005_security_hardening.sql`)
 
@@ -108,10 +73,9 @@ Arquivo novo, **requer execução manual** no SQL Editor do Supabase:
 
 ## Pendências / não cobertos automaticamente
 
-- **Itens 1, 15 e os fluxos interativos offline (2–7, 10)** — a validação
-  definitiva exige DevTools do Chrome (Application > Service Workers, Network >
-  Offline) e/ou Lighthouse com o app rodando. Este ambiente não driva o
-  navegador; os resultados acima são a conclusão da auditoria de código + build.
+- **Item 15** — a validação definitiva exige Lighthouse com o app rodando.
+  Este ambiente não driva o navegador; o resultado acima é a conclusão da
+  auditoria de código + build.
 - `sql/005_security_hardening.sql` ainda **não aplicado** ao projeto remoto.
 - Supabase Dashboard: `Site URL` ainda em `localhost`; "Leaked password
   protection" desligado; "Confirm email" desligado (ok para testes, religar

@@ -4,7 +4,7 @@ import { AlertTriangle } from 'lucide-react'
 import { useDashboardData } from '@/hooks/use-dashboard-data'
 import { QuickActions } from '@/components/dashboard/QuickActions'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
-import { DemoBanner, OfflineBanner } from '@/components/dashboard/DashboardBanners'
+import { DemoBanner } from '@/components/dashboard/DashboardBanners'
 import { Card } from '@/components/ui/card'
 
 export default function DashboardPage() {
@@ -12,7 +12,6 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {data?.fromCache && <OfflineBanner />}
       {data?.isDemo && <DemoBanner />}
       {isError && !data && (
         <div className="flex items-center gap-2 rounded-input border border-danger/20 bg-danger/10 px-3 py-2 text-xs font-medium text-danger">

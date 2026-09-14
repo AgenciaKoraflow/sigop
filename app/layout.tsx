@@ -17,15 +17,6 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "SIGOP",
   description: "Operational incident management system",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    title: "SIGOP",
-    statusBarStyle: "default",
-  },
-  icons: {
-    apple: "/icons/icon-192x192.png",
-  },
 };
 
 export const viewport: Viewport = {

@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { getDB } from '@/lib/db'
 import type { RemotePhoto } from '@/components/fotos/PhotoGallery'
 import { signPhotoUrls } from '@/lib/fotos/urls'
 import { fromOffenderPayload, type OffenderFormValues } from './form'
@@ -147,8 +146,6 @@ export interface OffenderIncidentHistoryItem {
 
 export interface OffenderDetail {
   offender: OffenderRecord
-  /** `true` when the record only exists locally (queued, not yet synced). */
-  isLocalOnly: boolean
   incidents: OffenderIncidentHistoryItem[]
   photos: RemotePhoto[]
   values: OffenderFormValues
@@ -156,18 +153,6 @@ export interface OffenderDetail {
 
 const byDateDesc = (a: string | null, b: string | null) =>
   new Date(b ?? 0).getTime() - new Date(a ?? 0).getTime()
-
-/** Read a queued (not-yet-synced) offender payload straight from IndexedDB. */
-async function readQueuedOffender(id: string): Promise<Record<string, unknown> | null> {
-  try {
-    const db = await getDB()
-    const item = await db.get('sync_queue', id)
-    if (item && item.entity_type === 'offender') return item.payload
-  } catch {
-    /* IndexedDB unavailable (SSR / private mode) — ignore. */
-  }
-  return null
-}
 
 export async function getOffenderDetail(id: string): Promise<OffenderDetail | null> {
   const supabase = untyped()
@@ -178,17 +163,9 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
     .eq('id', id)
     .is('deleted_at', null)
     .maybeSingle()
-  if (error && error.code !== 'PGRST116') {
-    // Network / server error: still try the local queue before giving up.
-    const queued = await readQueuedOffender(id)
-    if (!queued) throw new Error(error.message)
-    return buildLocalDetail(id, queued)
-  }
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
 
-  if (!row) {
-    const queued = await readQueuedOffender(id)
-    return queued ? buildLocalDetail(id, queued) : null
-  }
+  if (!row) return null
 
   const offender = row as unknown as OffenderRecord
 
@@ -239,46 +216,9 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
 
   return {
     offender,
-    isLocalOnly: false,
     incidents,
     photos,
     values: fromOffenderPayload(offender as unknown as Record<string, unknown>),
-  }
-}
-
-function buildLocalDetail(id: string, payload: Record<string, unknown>): OffenderDetail {
-  const str = (key: string) =>
-    payload[key] === null || payload[key] === undefined ? null : String(payload[key])
-  const num = (key: string) =>
-    payload[key] === null || payload[key] === undefined ? null : Number(payload[key])
-
-  const offender: OffenderRecord = {
-    id,
-    full_name: str('full_name'),
-    social_name: str('social_name'),
-    nickname: str('nickname'),
-    cpf: str('cpf'),
-    rg: str('rg'),
-    birth_date: str('birth_date'),
-    gender: str('gender'),
-    height_m: num('height_m'),
-    weight_kg: num('weight_kg'),
-    skin_color: str('skin_color'),
-    eye_color: str('eye_color'),
-    hair_color: str('hair_color'),
-    distinguishing_marks: str('distinguishing_marks'),
-    physical_description: str('physical_description'),
-    main_photo_url: str('main_photo_url'),
-    created_at: null,
-    updated_at: null,
-  }
-
-  return {
-    offender,
-    isLocalOnly: true,
-    incidents: [],
-    photos: [],
-    values: fromOffenderPayload(payload),
   }
 }
 

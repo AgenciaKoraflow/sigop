@@ -1,5 +1,3 @@
-import type { SyncStatus } from '@/types/app.types'
-
 /** Portuguese display copy for the dashboard. Keys stay aligned with the schema. */
 
 export const INCIDENT_TYPE_LABELS: Record<string, string> = {
@@ -10,15 +8,6 @@ export const INCIDENT_TYPE_LABELS: Record<string, string> = {
   suspicious: 'Suspeita',
   stop: 'Abordagem',
   other: 'Outro',
-}
-
-export const SYNC_LABELS: Record<SyncStatus, string> = {
-  draft: 'Rascunho',
-  pending: 'Pendente',
-  syncing: 'Sincronizando',
-  synced: 'Sincronizado',
-  error: 'Erro',
-  conflict: 'Conflito',
 }
 
 /** Pill classes for the incident/stop type badge (Badge has no `type` variant). */

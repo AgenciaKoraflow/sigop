@@ -142,7 +142,6 @@ export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicat
     topOffenders,
     agentProductivity,
     recentIncidents,
-    syncAlerts: { conflicts: 0, errors: 0 },
     isMock: true,
     generatedAt: new Date().toISOString(),
   }

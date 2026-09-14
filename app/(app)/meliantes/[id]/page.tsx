@@ -105,7 +105,7 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
     )
   }
 
-  const { offender, incidents, photos, isLocalOnly } = detail
+  const { offender, incidents, photos } = detail
   const name = offenderDisplayName(offender)
   const mainPhoto = photos.find((photo) => (photo.sortOrder ?? 0) === 0) ?? photos[0]
   const mainPhotoUrl = mainPhoto?.url ?? offender.main_photo_url ?? null
@@ -131,7 +131,6 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold text-ink">{name}</h1>
-            {isLocalOnly && <Badge variant="pending">Aguardando sincronização</Badge>}
           </div>
           {offender.nickname && (
             <p className="text-sm text-ink-secondary">&ldquo;{offender.nickname}&rdquo;</p>

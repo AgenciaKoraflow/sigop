@@ -12,7 +12,6 @@ import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PeriodFilter } from './indicators/PeriodFilter'
 import { ExportMenu } from './indicators/ExportMenu'
-import { SyncAlertBanners } from './indicators/SyncAlertBanners'
 import { IndicatorKpiCards } from './indicators/IndicatorKpiCards'
 import {
   CompositionDonutChart,
@@ -103,8 +102,6 @@ export function OperationalDashboard() {
           Não foi possível carregar os indicadores. Tente novamente em instantes.
         </div>
       )}
-
-      {data && <SyncAlertBanners alerts={data.syncAlerts} />}
 
       <IndicatorKpiCards kpis={data?.kpis} loading={isLoading} />
 

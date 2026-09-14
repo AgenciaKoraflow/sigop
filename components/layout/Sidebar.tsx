@@ -5,20 +5,9 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Loader2, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import { signOut, forceSignOut } from '@/lib/supabase/auth'
-import { clearOfflineData } from '@/lib/db'
+import { signOut } from '@/lib/supabase/auth'
 import { usePermissions } from '@/hooks/use-permissions'
-import { useOnlineStatus } from '@/hooks/use-online-status'
 import { useCurrentUser, initials, roleLabel } from '@/hooks/use-current-user'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { NAV_ITEMS, isNavItemActive } from './nav-items'
 
 interface SidebarProps {
@@ -30,34 +19,14 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { canViewDashboard, canManageUsers } = usePermissions()
-  const { stats } = useOnlineStatus()
   const { user } = useCurrentUser()
 
-  const pendingCount = stats.pending + stats.errors + stats.photos
-
-  const [confirmOpen, setConfirmOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
   async function handleSignOut() {
     setSigningOut(true)
     try {
-      const { hasPendingItems } = await signOut()
-      if (hasPendingItems) {
-        setConfirmOpen(true)
-        return
-      }
-      router.push('/login')
-    } finally {
-      setSigningOut(false)
-    }
-  }
-
-  async function handleForceSignOut() {
-    setSigningOut(true)
-    try {
-      await clearOfflineData()
-      await forceSignOut()
-      setConfirmOpen(false)
+      await signOut()
       router.push('/login')
     } finally {
       setSigningOut(false)
@@ -107,11 +76,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 >
                   <Icon className="h-[18px] w-[18px] shrink-0" />
                   <span className="flex-1 truncate">{item.label}</span>
-                  {item.showPendingBadge && pendingCount > 0 && (
-                    <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold leading-none text-white">
-                      {pendingCount}
-                    </span>
-                  )}
                 </Link>
               </li>
             )
@@ -139,7 +103,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           disabled={signingOut}
           className="mt-3 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-red-950/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {signingOut && !confirmOpen ? (
+          {signingOut ? (
             <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           ) : (
             <LogOut className="h-4 w-4 shrink-0" />
@@ -147,38 +111,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           Sair
         </button>
       </div>
-
-      <Dialog open={confirmOpen} onOpenChange={(open) => !signingOut && setConfirmOpen(open)}>
-        <DialogContent className="max-w-md" aria-describedby="signout-warning">
-          <DialogHeader>
-            <DialogTitle>Sair com registros pendentes?</DialogTitle>
-            <DialogDescription id="signout-warning">
-              Você tem {pendingCount}{' '}
-              {pendingCount === 1
-                ? 'registro que ainda não foi enviado'
-                : 'registros que ainda não foram enviados'}{' '}
-              ao servidor. Se sair agora, {pendingCount === 1 ? 'ele será perdido' : 'eles serão perdidos'}.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmOpen(false)}
-              disabled={signingOut}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleForceSignOut}
-              disabled={signingOut}
-            >
-              {signingOut && <Loader2 className="h-4 w-4 animate-spin" />}
-              Sair mesmo assim
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

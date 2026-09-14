@@ -8,7 +8,6 @@ import {
   startOfYear,
 } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
-import { loadPendingSnapshot } from '@/lib/sync/pendentes'
 import { INCIDENT_TYPE_LABELS } from '@/lib/dashboard/labels'
 import { buildMockIndicators } from './indicators-mock'
 
@@ -16,8 +15,7 @@ import { buildMockIndicators } from './indicators-mock'
  * Data layer for the operational-indicators dashboard (`app/(app)/dashboard`).
  *
  * Everything comes from a single `dashboard_stats()` RPC call (see
- * `sql/002_triggers_functions.sql`); the sync banners are read from the local
- * IndexedDB queue via {@link loadPendingSnapshot}.
+ * `sql/002_triggers_functions.sql`).
  *
  * Reads go through an untyped client on purpose — the generated `Database`
  * types collapse `.rpc()` args to unusable unions here (see the
@@ -140,11 +138,6 @@ export interface DashboardKpiSet {
   avgIncidentsPerDay: number
 }
 
-export interface SyncAlertCounts {
-  conflicts: number
-  errors: number
-}
-
 export interface DashboardIndicators {
   kpis: DashboardKpiSet
   daily: DailyVolumePoint[]
@@ -153,7 +146,6 @@ export interface DashboardIndicators {
   topOffenders: TopOffenderRow[]
   agentProductivity: AgentProductivityRow[]
   recentIncidents: RecentIncidentRow[]
-  syncAlerts: SyncAlertCounts
   /** Demo dataset — the database has no records for this range. */
   isMock: boolean
   generatedAt: string
@@ -192,11 +184,7 @@ interface StatsPayload {
   }[]
 }
 
-function toIndicators(
-  payload: StatsPayload,
-  syncAlerts: SyncAlertCounts,
-  rangeDays: number,
-): DashboardIndicators {
+function toIndicators(payload: StatsPayload, rangeDays: number): DashboardIndicators {
   const total = Number(payload.total ?? 0)
 
   const byType: TypeBreakdownEntry[] = Object.entries(payload.by_type ?? {})
@@ -252,19 +240,8 @@ function toIndicators(
       occurredAt: row.occurred_at,
       agentName: row.agent_name,
     })),
-    syncAlerts,
     isMock: false,
     generatedAt: new Date().toISOString(),
-  }
-}
-
-async function readSyncAlerts(): Promise<SyncAlertCounts> {
-  try {
-    const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine
-    const snapshot = await loadPendingSnapshot(isOnline)
-    return { conflicts: snapshot.conflicts.length, errors: snapshot.counts.errors }
-  } catch {
-    return { conflicts: 0, errors: 0 }
   }
 }
 
@@ -276,7 +253,6 @@ export async function fetchDashboardIndicators(
 ): Promise<DashboardIndicators> {
   const { start, end } = resolveRange(filters)
   const rangeDays = Math.max(differenceInCalendarDays(end, start) + 1, 1)
-  const syncAlerts = await readSyncAlerts()
 
   const { data, error } = await untyped().rpc('dashboard_stats', {
     p_unit_id: filters.unitId ?? null,
@@ -292,10 +268,10 @@ export async function fetchDashboardIndicators(
     Number(payload.total ?? 0) > 0 || Number(payload.stops_total ?? 0) > 0
 
   if (!hasRealData) {
-    return { ...buildMockIndicators(filters), syncAlerts }
+    return buildMockIndicators(filters)
   }
 
-  return toIndicators(payload, syncAlerts, rangeDays)
+  return toIndicators(payload, rangeDays)
 }
 
 // ---------------------------------------------------------------------------

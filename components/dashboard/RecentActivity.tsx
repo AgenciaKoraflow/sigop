@@ -6,10 +6,9 @@ import { ChevronRight, ImageIcon, MapPin } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils/cn'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { ActivityItem, RangeKey } from '@/lib/dashboard/types'
-import { SYNC_LABELS, typeBadgeClass, typeLabel } from '@/lib/dashboard/labels'
+import { typeBadgeClass, typeLabel } from '@/lib/dashboard/labels'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -68,9 +67,6 @@ function ActivityRow({ item }: { item: ActivityItem }) {
           >
             {typeLabel(item.entityType)}
           </span>
-          {item.syncStatus && (
-            <Badge variant={item.syncStatus}>{SYNC_LABELS[item.syncStatus]}</Badge>
-          )}
         </div>
         <div className="mt-1 flex items-center gap-1 text-xs text-ink-secondary">
           <MapPin className="h-3 w-3 shrink-0" />

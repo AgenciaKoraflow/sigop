@@ -17,9 +17,6 @@ export type IncidentUpdate = TablesUpdate<'incidents'>
 export type OffenderInsert = TablesInsert<'offenders'>
 export type OffenderUpdate = TablesUpdate<'offenders'>
 
-export type SyncStatus = 'draft' | 'pending' | 'syncing' | 'synced' | 'error' | 'conflict'
-export type EntityType = 'incident' | 'offender' | 'link' | 'photo'
-export type Operation = 'create' | 'update' | 'delete' | 'upload'
 export type UserRole = 'agent' | 'supervisor' | 'administrator'
 export type IncidentType =
   | 'theft'

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, WifiOff } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useRecords } from '@/hooks/use-records'
@@ -70,7 +70,7 @@ export function RecordsListView() {
   }
 
   const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil((data?.serverCount ?? 0) / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const showPagination =
     !isLoading && (data?.items.length ?? 0) > 0 && totalPages > 1
 
@@ -106,13 +106,6 @@ export function RecordsListView() {
         view={view}
         onViewChange={setView}
       />
-
-      {data?.fromCache && (
-        <p className="flex items-center gap-2 rounded-input border border-sync-pending-text/20 bg-sync-pending-bg px-3 py-2 text-xs font-medium text-sync-pending-text">
-          <WifiOff className="h-3.5 w-3.5 shrink-0" />
-          Sem conexão — exibindo apenas rascunhos locais.
-        </p>
-      )}
 
       {isError && !data && (
         <p className="rounded-input border border-danger/20 bg-danger/10 px-3 py-2 text-xs font-medium text-danger">

@@ -2,19 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Search, WifiOff } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useOnlineStatus } from '@/hooks/use-online-status'
 import { searchOffenders, type OffenderSearchResult } from '@/lib/meliantes/data'
 import { CardMeliante } from '@/components/meliantes/CardMeliante'
 
 const SEARCH_DEBOUNCE_MS = 400
 
 export default function OffendersPage() {
-  const { isOnline } = useOnlineStatus()
   const [term, setTerm] = useState('')
   const [debounced, setDebounced] = useState('')
   const [results, setResults] = useState<OffenderSearchResult[]>([])
@@ -74,13 +72,6 @@ export default function OffendersPage() {
           className="pl-9"
         />
       </div>
-
-      {!isOnline && (
-        <p className="flex items-center gap-2 rounded-input border border-sync-pending-text/20 bg-sync-pending-bg px-3 py-2 text-xs font-medium text-sync-pending-text">
-          <WifiOff className="h-3.5 w-3.5 shrink-0" />
-          Sem conexão — a busca de meliantes precisa de internet.
-        </p>
-      )}
 
       {error && (
         <p className="rounded-input border border-danger/20 bg-danger/10 px-3 py-2 text-xs font-medium text-danger">

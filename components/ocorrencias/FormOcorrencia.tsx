@@ -17,20 +17,9 @@ import {
 
 import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
-import {
-  getDraftIncident,
-  readSetting,
-  saveDraftIncident,
-  saveSetting,
-} from '@/lib/db'
-import type { DraftIncident } from '@/lib/db/schema'
-import { createQueueItem, enqueueSync, processQueue } from '@/lib/sync/queue'
-import { useSyncQueue } from '@/hooks/use-sync-queue'
 import { useCurrentUser, initials } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
-import { SYNC_LABELS } from '@/lib/dashboard/labels'
 import {
-  AUTOSAVE_DELAY_MS,
   INCIDENT_DESCRIPTION_MAX,
   INCIDENT_DESCRIPTION_MIN,
   INCIDENT_TYPE_OPTIONS,
@@ -42,7 +31,6 @@ import {
   fromIncidentPayload,
   incidentFormSchema,
   maskCep,
-  offendersSettingKey,
   offenderRoleLabel,
   parseGoogleMapsUrl,
   toDatetimeLocal,
@@ -59,11 +47,9 @@ import {
   type MunicipalityOption,
   type TerritorialAreaOption,
 } from '@/lib/ocorrencias/data'
-import type { SyncStatus } from '@/types/app.types'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
-  Badge,
   Button,
   Input,
   Label,
@@ -113,10 +99,10 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useCurrentUser()
-  const { saveIncident } = useSyncQueue()
 
-  // A stable id for the whole lifetime of the form. Photos in IndexedDB are
-  // keyed by this, so it must exist before the first render.
+  // A stable id for the whole lifetime of the form. Photos uploaded before the
+  // incident itself is saved are keyed by this, so it must exist before the
+  // first render.
   const [id] = React.useState(() => incidentId ?? newId())
 
   const form = useForm<IncidentFormValues>({
@@ -133,7 +119,6 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
   const [loadError, setLoadError] = React.useState(false)
   const [notFound, setNotFound] = React.useState(false)
   const [existsOnServer, setExistsOnServer] = React.useState(false)
-  const [localStatus, setLocalStatus] = React.useState<SyncStatus | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
 
   const [offenders, setOffenders] = React.useState<LinkedOffender[]>([])
@@ -155,14 +140,6 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
   // Google Maps link
   const [gmapsInput, setGmapsInput] = React.useState('')
   const [gmapsError, setGmapsError] = React.useState<string | null>(null)
-
-  // Autosave bookkeeping
-  const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null)
-  const [, forceTick] = React.useState(0)
-  const baselineRef = React.useRef<string>('')
-  // Server `version` seen when this edit began — the baseline for optimistic
-  // concurrency. Stays null for brand-new incidents.
-  const serverBaselineVersion = React.useRef<number | null>(null)
 
   const latitude = watch('latitude')
   const longitude = watch('longitude')
@@ -246,21 +223,6 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
 
     ;(async () => {
       try {
-        // 1. Local draft wins — it is the freshest copy.
-        const draft = await getDraftIncident(incidentId)
-        if (draft && !cancelled) {
-          form.reset(fromIncidentPayload(draft.payload))
-          setLocalStatus(draft.status)
-          setExistsOnServer(draft.operation === 'update')
-          serverBaselineVersion.current = draft.remote_version ?? null
-          const savedOffenders = (await readSetting(
-            offendersSettingKey(incidentId),
-          )) as LinkedOffender[] | undefined
-          if (savedOffenders && !cancelled) setOffenders(savedOffenders)
-          return
-        }
-
-        // 2. Fall back to the server.
         const supabase = untyped()
         const { data, error } = await supabase
           .from('incidents')
@@ -278,8 +240,6 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
         if (!cancelled) {
           form.reset(fromIncidentPayload(data as Record<string, unknown>))
           setExistsOnServer(true)
-          const v = (data as Record<string, unknown>).version
-          serverBaselineVersion.current = typeof v === 'number' ? v : null
         }
 
         const { data: links } = await supabase
@@ -315,32 +275,6 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, incidentId])
 
-  // Snapshot used to detect real changes for autosave.
-  const snapshot = JSON.stringify({ values: watch(), offenders })
-
-  React.useEffect(() => {
-    if (loading) return
-    // Establish the baseline once, right after load.
-    if (!baselineRef.current) {
-      baselineRef.current = snapshot
-      return
-    }
-    if (snapshot === baselineRef.current) return
-
-    const timer = setTimeout(() => {
-      void persistDraft({ silent: true })
-    }, AUTOSAVE_DELAY_MS)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot, loading])
-
-  // "salvo há X segundos" ticker
-  React.useEffect(() => {
-    if (!lastSavedAt) return
-    const interval = setInterval(() => forceTick((t) => t + 1), 1000)
-    return () => clearInterval(interval)
-  }, [lastSavedAt])
-
   // -------------------------------------------------------------------------
   // Persistence
   // -------------------------------------------------------------------------
@@ -355,52 +289,6 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
     },
     [id, user?.id],
   )
-
-  const persistDraft = React.useCallback(
-    async ({ silent = false }: { silent?: boolean } = {}) => {
-      const values = getValues()
-      const operation: 'create' | 'update' = existsOnServer ? 'update' : 'create'
-      const payload = buildPayload(values, operation)
-      const now = new Date().toISOString()
-      const existing = await getDraftIncident(id)
-
-      const draft: DraftIncident = {
-        id,
-        entity_type: 'incident',
-        operation,
-        payload,
-        status: 'draft',
-        sync_attempts: 0,
-        last_error: null,
-        next_attempt_at: null,
-        local_version: (existing?.local_version ?? 0) + 1,
-        remote_version: existing?.remote_version ?? serverBaselineVersion.current,
-        created_at: existing?.created_at ?? now,
-        updated_at: now,
-      }
-
-      await saveDraftIncident(draft)
-      await saveSetting(offendersSettingKey(id), offenders)
-
-      baselineRef.current = JSON.stringify({ values, offenders })
-      setLocalStatus('draft')
-      setLastSavedAt(new Date())
-      if (!silent) toast({ title: 'Rascunho salvo localmente' })
-    },
-    [buildPayload, existsOnServer, getValues, id, offenders, toast],
-  )
-
-  const handleSaveDraft = async () => {
-    try {
-      await persistDraft()
-      if (mode === 'create') router.replace(`/ocorrencias/${id}`)
-    } catch {
-      toast({
-        title: 'Não foi possível salvar o rascunho',
-        variant: 'destructive',
-      })
-    }
-  }
 
   const onFinalize = form.handleSubmit(
     async (values) => {
@@ -417,52 +305,35 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
       try {
         const operation: 'create' | 'update' = existsOnServer ? 'update' : 'create'
         const payload = buildPayload(values, operation)
+        const supabase = untyped()
 
-        // Persists the draft locally (status "pending") AND enqueues the sync unit.
-        await saveIncident(payload, operation, serverBaselineVersion.current)
-        await saveSetting(offendersSettingKey(id), offenders)
+        if (operation === 'create') {
+          const { error } = await supabase.from('incidents').insert(payload)
+          if (error) throw new Error(error.message)
+        } else {
+          const { id: payloadId, ...data } = payload
+          const { error } = await supabase.from('incidents').update(data).eq('id', payloadId as string)
+          if (error) throw new Error(error.message)
+        }
 
         for (const offender of offenders) {
           if (offender.isNew && offender.draft) {
-            await enqueueSync(
-              createQueueItem(
-                'offender',
-                'create',
-                { ...offender.draft, created_by: user.id },
-                1,
-              ),
-            )
+            const { error } = await supabase
+              .from('offenders')
+              .insert({ ...offender.draft, created_by: user.id })
+            if (error) throw new Error(error.message)
           }
-          await enqueueSync(
-            createQueueItem(
-              'link',
-              'create',
-              {
-                table: 'incident_offenders',
-                id: offender.linkId,
-                incident_id: id,
-                offender_id: offender.offenderId,
-                role: offender.role,
-                created_by: user.id,
-              },
-              3,
-            ),
-          )
+          const { error } = await supabase.from('incident_offenders').upsert({
+            id: offender.linkId,
+            incident_id: id,
+            offender_id: offender.offenderId,
+            role: offender.role,
+            created_by: user.id,
+          })
+          if (error && !error.message.includes('duplicate')) throw new Error(error.message)
         }
 
-        baselineRef.current = JSON.stringify({ values, offenders })
-        setLocalStatus('pending')
-        setLastSavedAt(new Date())
-
-        const online = typeof navigator !== 'undefined' && navigator.onLine
-        if (online) void processQueue().catch(() => {})
-
-        toast({
-          title: 'Ocorrência salva',
-          description: online
-            ? 'Enviando para o servidor…'
-            : 'Sem conexão — será sincronizada automaticamente.',
-        })
+        toast({ title: 'Ocorrência salva' })
 
         if (mode === 'create') {
           router.push(`/ocorrencias/${id}`)
@@ -565,9 +436,6 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
     )
   }
 
-  const secondsAgo = lastSavedAt
-    ? Math.max(0, Math.floor((Date.now() - lastSavedAt.getTime()) / 1000))
-    : null
   const locationError = formState.errors.address_street?.message
   const occurredError = formState.errors.occurred_at?.message
 
@@ -579,15 +447,8 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
           <h1 className="text-2xl font-bold text-ink">
             {mode === 'create' ? 'Nova ocorrência' : 'Editar ocorrência'}
           </h1>
-          {localStatus && (
-            <Badge variant={localStatus === 'draft' ? 'draft' : localStatus}>
-              {localStatus === 'draft' ? 'Rascunho local' : SYNC_LABELS[localStatus]}
-            </Badge>
-          )}
         </div>
-        <p className="text-sm text-ink-secondary">
-          Preencha as seções abaixo. Os dados são salvos automaticamente no dispositivo.
-        </p>
+        <p className="text-sm text-ink-secondary">Preencha as seções abaixo.</p>
         {loadError && (
           <p className="mt-2 flex items-center gap-2 rounded-input border border-sync-pending-text/20 bg-sync-pending-bg px-3 py-2 text-xs font-medium text-sync-pending-text">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
@@ -849,8 +710,8 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
       <section className="space-y-3">
         <SectionTitle index={3}>Fotos</SectionTitle>
         <p className="rounded-input border border-content-border bg-content-bg px-3 py-2 text-xs text-ink-secondary">
-          Máximo de {MAX_PHOTOS_PER_INCIDENT} fotos por ocorrência. As fotos são comprimidas e
-          guardadas no dispositivo até a sincronização.
+          Máximo de {MAX_PHOTOS_PER_INCIDENT} fotos por ocorrência. As fotos são enviadas
+          imediatamente ao serem selecionadas.
         </p>
         <PhotoUpload entityId={id} entityType="incident" maxPhotos={MAX_PHOTOS_PER_INCIDENT} />
       </section>
@@ -885,7 +746,7 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
                     )}
                   </p>
                   <p className="text-xs text-ink-secondary">
-                    {offender.isNew ? 'Novo cadastro (aguardando sync)' : offenderRoleLabel(offender.role)}
+                    {offender.isNew ? 'Novo cadastro (será criado ao salvar)' : offenderRoleLabel(offender.role)}
                   </p>
                 </div>
 
@@ -942,24 +803,11 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
 
       {/* Sticky footer ------------------------------------------------- */}
       <footer className="fixed inset-x-0 bottom-0 z-20 border-t border-content-border bg-white/95 backdrop-blur lg:pl-sidebar">
-        <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-ink-secondary">
-            {secondsAgo === null
-              ? 'Rascunho ainda não salvo'
-              : secondsAgo < 3
-                ? 'Rascunho salvo automaticamente agora mesmo'
-                : `Rascunho salvo automaticamente há ${secondsAgo}s`}
-          </p>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={submitting}>
-              <Save className="h-4 w-4" />
-              Salvar rascunho
-            </Button>
-            <Button type="button" variant="primary" onClick={onFinalize} disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Finalizar ocorrência
-            </Button>
-          </div>
+        <div className="mx-auto flex max-w-3xl items-center justify-end gap-2 px-4 py-3">
+          <Button type="button" variant="primary" onClick={onFinalize} disabled={submitting}>
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {mode === 'create' ? 'Registrar ocorrência' : 'Salvar alterações'}
+          </Button>
         </div>
       </footer>
 

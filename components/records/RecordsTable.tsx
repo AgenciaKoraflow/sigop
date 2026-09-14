@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils/cn'
 import { typeBadgeClass, typeLabel } from '@/lib/dashboard/labels'
 import type { RecordFilters, RecordListItem, SortColumn } from '@/lib/records/config'
 import { RECORD_CONFIG } from '@/lib/records/config'
-import { SortIcon, SyncBadge, TableSkeletonRow, formatDateTime, isDraftRow } from './record-ui'
+import { SortIcon, TableSkeletonRow, formatDateTime } from './record-ui'
 
 interface Props {
   items: RecordListItem[]
@@ -33,7 +33,6 @@ export function RecordsTable({ items, loading, sort, onToggleSort }: Props) {
     { key: 'type', label: 'Tipo' },
     { key: 'date', label: 'Data e hora' },
     { key: 'address', label: 'Endereço' },
-    { key: null, label: 'Sync' },
     { key: null, label: 'Ações', align: 'right' as const },
   ]
 
@@ -97,13 +96,7 @@ function RecordRow({ item, onOpen }: { item: RecordListItem; onOpen: () => void 
     [item.street, item.district, item.city].filter(Boolean).join(' · ') || '—'
 
   return (
-    <TableRow
-      onClick={onOpen}
-      className={cn(
-        'cursor-pointer',
-        isDraftRow(item) && 'bg-amber-50 hover:bg-amber-100/60',
-      )}
-    >
+    <TableRow onClick={onOpen} className="cursor-pointer">
       <TableCell>
         <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-content-border bg-content-bg">
           {item.thumbnailUrl ? (
@@ -147,10 +140,6 @@ function RecordRow({ item, onOpen }: { item: RecordListItem; onOpen: () => void 
 
       <TableCell className="max-w-[220px] truncate text-sm text-ink-secondary">
         {place}
-      </TableCell>
-
-      <TableCell>
-        <SyncBadge item={item} />
       </TableCell>
 
       <TableCell className="text-right">

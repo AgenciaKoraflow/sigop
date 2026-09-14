@@ -10,7 +10,6 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   ArrowLeft,
-  CloudOff,
   ExternalLink,
   History,
   ImagePlus,
@@ -22,24 +21,16 @@ import {
 
 import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
-import { deleteDraftIncident, getDB, getDraftIncident, readSetting } from '@/lib/db'
-import type { SyncStatus } from '@/types/app.types'
 import { usePermissions } from '@/hooks/use-permissions'
-import { useOnlineStatus } from '@/hooks/use-online-status'
 import { useCurrentUser, initials } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
-import { createQueueItem, enqueueSync, processQueue } from '@/lib/sync/queue'
-import {
-  MAX_PHOTOS_PER_INCIDENT,
-  offendersSettingKey,
-  offenderRoleLabel,
-} from '@/lib/ocorrencias/form'
+import { MAX_PHOTOS_PER_INCIDENT, offenderRoleLabel } from '@/lib/ocorrencias/form'
 import {
   getContractorNameForTerritorialArea,
   getMunicipalityName,
   getTerritorialAreaName,
 } from '@/lib/ocorrencias/data'
-import { INCIDENT_TYPE_LABELS, SYNC_LABELS, typeBadgeClass } from '@/lib/dashboard/labels'
+import { INCIDENT_TYPE_LABELS, typeBadgeClass } from '@/lib/dashboard/labels'
 import { PhotoGallery, type RemotePhoto } from '@/components/fotos/PhotoGallery'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { signPhotoUrls } from '@/lib/fotos/urls'
@@ -148,8 +139,6 @@ interface AuditEntry {
 
 interface IncidentDetail {
   incident: IncidentScalar
-  source: 'remote' | 'local'
-  syncStatus: SyncStatus | null
   offenders: LinkedOffenderView[]
   photos: RemotePhoto[]
   audit: AuditEntry[]
@@ -266,208 +255,124 @@ interface RawAuditRow {
 // ---------------------------------------------------------------------------
 async function loadIncidentDetail(
   id: string,
-  isOnline: boolean,
   canViewAudit: boolean,
 ): Promise<IncidentDetail | null> {
-  let draft: Awaited<ReturnType<typeof getDraftIncident>> | undefined
-  try {
-    draft = await getDraftIncident(id)
-  } catch {
-    draft = undefined
-  }
+  const supabase = untyped()
+  const { data } = await supabase
+    .from('incidents')
+    .select('*')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  const serverRow = (data as Record<string, unknown>) ?? null
+  if (!serverRow) return null
 
-  let serverRow: Record<string, unknown> | null = null
-  let offenders: LinkedOffenderView[] = []
-  let photos: RemotePhoto[] = []
-  let audit: AuditEntry[] = []
-
-  if (isOnline) {
-    const supabase = untyped()
-    const { data } = await supabase
-      .from('incidents')
-      .select('*')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .maybeSingle()
-    serverRow = (data as Record<string, unknown>) ?? null
-
-    if (serverRow) {
-      const [linkRes, photoRes, auditRes] = await Promise.all([
-        supabase
-          .from('incident_offenders')
-          .select(
-            'id, role, offender_id, offenders ( id, full_name, social_name, nickname, main_photo_url )',
-          )
-          .eq('incident_id', id),
-        supabase
-          .from('photos')
-          .select('id, storage_path, description, sort_order')
+  const [linkRes, photoRes, auditRes] = await Promise.all([
+    supabase
+      .from('incident_offenders')
+      .select(
+        'id, role, offender_id, offenders ( id, full_name, social_name, nickname, main_photo_url )',
+      )
+      .eq('incident_id', id),
+    supabase
+      .from('photos')
+      .select('id, storage_path, description, sort_order')
+      .eq('entity_type', 'incident')
+      .eq('entity_id', id)
+      .order('sort_order', { ascending: true }),
+    canViewAudit
+      ? supabase
+          .from('audit_log')
+          .select('id, operation, performed_at, performed_by, previous_data, new_data')
           .eq('entity_type', 'incident')
           .eq('entity_id', id)
-          .order('sort_order', { ascending: true }),
-        canViewAudit
-          ? supabase
-              .from('audit_log')
-              .select('id, operation, performed_at, performed_by, previous_data, new_data')
-              .eq('entity_type', 'incident')
-              .eq('entity_id', id)
-              .order('performed_at', { ascending: false })
-              .limit(50)
-          : Promise.resolve({ data: [] as RawAuditRow[] }),
-      ])
+          .order('performed_at', { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: [] as RawAuditRow[] }),
+  ])
 
-      offenders = ((linkRes.data ?? []) as unknown as RawOffenderLink[]).map((link) => ({
-        linkId: link.id,
-        offenderId: link.offenders?.id ?? link.offender_id,
-        role: link.role,
-        name:
-          link.offenders?.full_name?.trim() ||
-          link.offenders?.social_name?.trim() ||
-          link.offenders?.nickname?.trim() ||
-          'Sem nome',
-        nickname: link.offenders?.nickname ?? null,
-        photoUrl: link.offenders?.main_photo_url ?? null,
-      }))
+  const offenders: LinkedOffenderView[] = ((linkRes.data ?? []) as unknown as RawOffenderLink[]).map(
+    (link) => ({
+      linkId: link.id,
+      offenderId: link.offenders?.id ?? link.offender_id,
+      role: link.role,
+      name:
+        link.offenders?.full_name?.trim() ||
+        link.offenders?.social_name?.trim() ||
+        link.offenders?.nickname?.trim() ||
+        'Sem nome',
+      nickname: link.offenders?.nickname ?? null,
+      photoUrl: link.offenders?.main_photo_url ?? null,
+    }),
+  )
 
-      const auditRows = (auditRes.data ?? []) as unknown as RawAuditRow[]
+  const auditRows = (auditRes.data ?? []) as unknown as RawAuditRow[]
 
-      const profileIds = auditRows
-        .map((row) => row.performed_by)
-        .filter((value, index, all): value is string =>
-          Boolean(value) && all.indexOf(value) === index,
-        )
-      const profileNames = new Map<string, string>()
-      if (profileIds.length > 0) {
-        const { data: profileRows } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', profileIds)
-        for (const profile of (profileRows ?? []) as { id: string; full_name: string }[]) {
-          profileNames.set(profile.id, profile.full_name)
-        }
-      }
-
-      const photoRows = (photoRes.data ?? []) as unknown as {
-        id: string
-        storage_path: string | null
-        description: string | null
-        sort_order: number | null
-      }[]
-      const signedUrls = await signPhotoUrls(
-        supabase,
-        photoRows.map((photo) => photo.storage_path),
-      )
-      photos = photoRows
-        .filter((photo) => photo.storage_path && signedUrls.has(photo.storage_path))
-        .map((photo) => ({
-          id: photo.id,
-          url: signedUrls.get(photo.storage_path as string) as string,
-          description: photo.description,
-          sortOrder: photo.sort_order,
-        }))
-
-      audit = auditRows.map((row) => ({
-        id: row.id,
-        operation: row.operation,
-        performedAt: row.performed_at,
-        performerName: row.performed_by ? profileNames.get(row.performed_by) ?? null : null,
-        changes:
-          row.operation === 'update'
-            ? summarizeChanges(row.previous_data, row.new_data)
-            : [],
-      }))
+  const profileIds = auditRows
+    .map((row) => row.performed_by)
+    .filter((value, index, all): value is string =>
+      Boolean(value) && all.indexOf(value) === index,
+    )
+  const profileNames = new Map<string, string>()
+  if (profileIds.length > 0) {
+    const { data: profileRows } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', profileIds)
+    for (const profile of (profileRows ?? []) as { id: string; full_name: string }[]) {
+      profileNames.set(profile.id, profile.full_name)
     }
   }
 
-  // A draft whose sync-queue entry is already gone AND that the server now
-  // knows about is stale — drop it so the screen shows the authoritative copy.
-  let effectiveDraft = draft
-  if (draft && isOnline && serverRow) {
-    let queued: Awaited<ReturnType<Awaited<ReturnType<typeof getDB>>['get']>> | undefined
-    try {
-      const db = await getDB()
-      queued = await db.get('sync_queue', id)
-    } catch {
-      queued = undefined
-    }
-    const stillPending = Boolean(queued) && queued?.status !== 'synced'
-    if (!stillPending) {
-      try {
-        await deleteDraftIncident(id)
-      } catch {
-        /* ignore */
-      }
-      effectiveDraft = undefined
-    }
+  const photoRows = (photoRes.data ?? []) as unknown as {
+    id: string
+    storage_path: string | null
+    description: string | null
+    sort_order: number | null
+  }[]
+  const signedUrls = await signPhotoUrls(
+    supabase,
+    photoRows.map((photo) => photo.storage_path),
+  )
+  const photos: RemotePhoto[] = photoRows
+    .filter((photo) => photo.storage_path && signedUrls.has(photo.storage_path))
+    .map((photo) => ({
+      id: photo.id,
+      url: signedUrls.get(photo.storage_path as string) as string,
+      description: photo.description,
+      sortOrder: photo.sort_order,
+    }))
+
+  const audit: AuditEntry[] = auditRows.map((row) => ({
+    id: row.id,
+    operation: row.operation,
+    performedAt: row.performed_at,
+    performerName: row.performed_by ? profileNames.get(row.performed_by) ?? null : null,
+    changes: row.operation === 'update' ? summarizeChanges(row.previous_data, row.new_data) : [],
+  }))
+
+  const incident = toIncidentScalar(id, serverRow)
+
+  try {
+    const [municipalityName, territorialAreaName, contractorName] = await Promise.all([
+      incident.municipality_id
+        ? getMunicipalityName(incident.municipality_id)
+        : Promise.resolve(null),
+      incident.territorial_area_id
+        ? getTerritorialAreaName(incident.territorial_area_id)
+        : Promise.resolve(null),
+      incident.territorial_area_id
+        ? getContractorNameForTerritorialArea(incident.territorial_area_id)
+        : Promise.resolve(null),
+    ])
+    incident.municipality_name = municipalityName
+    incident.territorial_area_name = territorialAreaName
+    incident.contractor_name = contractorName
+  } catch {
+    /* lookup failed — leave the labels blank */
   }
 
-  if (!effectiveDraft && !serverRow) return null
-
-  const merged: Record<string, unknown> = {
-    ...(serverRow ?? {}),
-    ...(effectiveDraft ? effectiveDraft.payload : {}),
-  }
-  const incident = toIncidentScalar(id, merged)
-
-  // Resolve the operational-geography names (município / AT). Requires the
-  // network — offline the raw ids are all we have, so the labels stay blank.
-  if (isOnline) {
-    try {
-      const [municipalityName, territorialAreaName, contractorName] = await Promise.all([
-        incident.municipality_id
-          ? getMunicipalityName(incident.municipality_id)
-          : Promise.resolve(null),
-        incident.territorial_area_id
-          ? getTerritorialAreaName(incident.territorial_area_id)
-          : Promise.resolve(null),
-        incident.territorial_area_id
-          ? getContractorNameForTerritorialArea(incident.territorial_area_id)
-          : Promise.resolve(null),
-      ])
-      incident.municipality_name = municipalityName
-      incident.territorial_area_name = territorialAreaName
-      incident.contractor_name = contractorName
-    } catch {
-      /* lookup failed — leave the labels blank */
-    }
-  }
-
-  // Local draft: recover the offender links stored alongside the draft.
-  if (effectiveDraft && offenders.length === 0) {
-    try {
-      const saved = (await readSetting(offendersSettingKey(id))) as
-        | {
-            linkId: string
-            offenderId: string
-            role: string | null
-            fullName: string | null
-            nickname: string | null
-            photoUrl: string | null
-          }[]
-        | undefined
-      if (Array.isArray(saved)) {
-        offenders = saved.map((entry) => ({
-          linkId: entry.linkId,
-          offenderId: entry.offenderId,
-          role: entry.role,
-          name: entry.fullName?.trim() || entry.nickname?.trim() || 'Sem nome',
-          nickname: entry.nickname,
-          photoUrl: entry.photoUrl,
-        }))
-      }
-    } catch {
-      /* IndexedDB unavailable — ignore. */
-    }
-  }
-
-  return {
-    incident,
-    source: effectiveDraft ? 'local' : 'remote',
-    syncStatus: effectiveDraft ? effectiveDraft.status : null,
-    offenders,
-    photos,
-    audit,
-  }
+  return { incident, offenders, photos, audit }
 }
 
 // ---------------------------------------------------------------------------
@@ -483,20 +388,19 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
   const { toast } = useToast()
   const { user } = useCurrentUser()
   const perms = usePermissions()
-  const { isOnline } = useOnlineStatus()
 
   const [editing, setEditing] = React.useState(false)
   const [showUpload, setShowUpload] = React.useState(false)
   const [linkOpen, setLinkOpen] = React.useState(false)
 
   const queryKey = React.useMemo(
-    () => ['incident-detail', id, isOnline, perms.canViewAuditLog] as const,
-    [id, isOnline, perms.canViewAuditLog],
+    () => ['incident-detail', id, perms.canViewAuditLog] as const,
+    [id, perms.canViewAuditLog],
   )
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey,
-    queryFn: () => loadIncidentDetail(id, isOnline, perms.canViewAuditLog),
+    queryFn: () => loadIncidentDetail(id, perms.canViewAuditLog),
   })
 
   const refresh = React.useCallback(() => {
@@ -510,30 +414,17 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
         return
       }
       try {
-        await enqueueSync(
-          createQueueItem(
-            'link',
-            'create',
-            {
-              table: 'incident_offenders',
-              id: newId(),
-              incident_id: id,
-              offender_id: offenderId,
-              role: 'suspect',
-              created_by: user.id,
-            },
-            3,
-          ),
-        )
-        if (typeof navigator !== 'undefined' && navigator.onLine) {
-          void processQueue().catch(() => {})
-        }
-        toast({
-          title: 'Meliante vinculado',
-          description: isOnline
-            ? 'Enviando para o servidor…'
-            : 'Sem conexão — será sincronizado automaticamente.',
+        const supabase = untyped()
+        const { error } = await supabase.from('incident_offenders').insert({
+          id: newId(),
+          incident_id: id,
+          offender_id: offenderId,
+          role: 'suspect',
+          created_by: user.id,
         })
+        if (error) throw new Error(error.message)
+
+        toast({ title: 'Meliante vinculado' })
         setLinkOpen(false)
         refresh()
       } catch (error) {
@@ -544,7 +435,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
         })
       }
     },
-    [id, isOnline, refresh, toast, user],
+    [id, refresh, toast, user],
   )
 
   // -----------------------------------------------------------------------
@@ -580,31 +471,24 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
   if (isError || !data) {
     return (
       <div className="mx-auto max-w-3xl rounded-card border border-content-border bg-white p-8 text-center">
-        <p className="text-lg font-semibold text-ink">
-          {!isOnline ? 'Ocorrência indisponível offline' : 'Ocorrência não encontrada'}
-        </p>
+        <p className="text-lg font-semibold text-ink">Ocorrência não encontrada</p>
         <p className="mt-1 text-sm text-ink-secondary">
-          {!isOnline
-            ? 'Não há cópia local desta ocorrência neste dispositivo. Conecte-se para carregá-la.'
-            : 'O registro pode ter sido removido ou o link está incorreto.'}
+          O registro pode ter sido removido ou o link está incorreto.
         </p>
         <div className="mt-4 flex justify-center gap-2">
           <Button variant="outline" onClick={() => router.push('/ocorrencias')}>
             Voltar para a lista
           </Button>
-          {isOnline && (
-            <Button variant="primary" onClick={() => void refetch()}>
-              Tentar novamente
-            </Button>
-          )}
+          <Button variant="primary" onClick={() => void refetch()}>
+            Tentar novamente
+          </Button>
         </div>
       </div>
     )
   }
 
-  const { incident, source, syncStatus, offenders, photos, audit } = data
+  const { incident, offenders, photos, audit } = data
   const internalNumber = incident.internal_number ?? `OC-${shortId(incident.id)}`
-  const isLocal = source === 'local'
   const hasCoords = incident.latitude != null && incident.longitude != null
 
   const addressLine = [
@@ -644,23 +528,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
                 {INCIDENT_TYPE_LABELS[incident.type] ?? incident.type}
                 {incident.subtype ? ` · ${incident.subtype}` : ''}
               </span>
-              {isLocal ? (
-                <Badge variant={syncStatus ?? 'draft'} className="gap-1">
-                  <CloudOff className="h-3 w-3" />
-                  {syncStatus && syncStatus !== 'draft'
-                    ? SYNC_LABELS[syncStatus]
-                    : 'Rascunho local'}
-                </Badge>
-              ) : (
-                <Badge variant="synced">{SYNC_LABELS.synced}</Badge>
-              )}
             </div>
-            {isLocal && (
-              <p className="flex items-center gap-1.5 text-xs font-medium text-sync-pending-text">
-                <CloudOff className="h-3.5 w-3.5" />
-                Visualizando versão local {isOnline ? '(ainda não sincronizada)' : '(offline)'}
-              </p>
-            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -742,7 +610,12 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowUpload((current) => !current)}
+            onClick={() => {
+              setShowUpload((current) => {
+                if (current) refresh()
+                return !current
+              })
+            }}
           >
             <ImagePlus className="h-4 w-4" />
             {showUpload ? 'Concluir' : 'Adicionar foto'}
@@ -820,9 +693,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
               <History className="h-4 w-4 text-ink-muted" />
               Histórico de alterações
             </h2>
-            {!isOnline ? (
-              <EmptyRow>Conecte-se para carregar o histórico de auditoria.</EmptyRow>
-            ) : audit.length === 0 ? (
+            {audit.length === 0 ? (
               <EmptyRow>Nenhuma alteração registrada.</EmptyRow>
             ) : (
               <ol className="space-y-3 border-l border-content-border pl-4">

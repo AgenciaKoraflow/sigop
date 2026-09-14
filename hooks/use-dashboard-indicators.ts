@@ -8,7 +8,6 @@ import {
   type DashboardIndicators,
   type IndicatorFilters,
 } from '@/lib/dashboard/indicators'
-import { useOnlineStatus } from './use-online-status'
 
 const TWO_MINUTES = 2 * 60 * 1000
 
@@ -19,8 +18,6 @@ const TWO_MINUTES = 2 * 60 * 1000
  * carries the active filters so changing the period / unit refetches.
  */
 export function useDashboardIndicators(filters: IndicatorFilters) {
-  const { isOnline } = useOnlineStatus()
-
   return useQuery<DashboardIndicators>({
     queryKey: [
       'dashboard-indicators',
@@ -28,7 +25,6 @@ export function useDashboardIndicators(filters: IndicatorFilters) {
       filters.customFrom ?? null,
       filters.customTo ?? null,
       filters.unitId ?? null,
-      isOnline,
     ],
     queryFn: () => fetchDashboardIndicators(filters),
     enabled:

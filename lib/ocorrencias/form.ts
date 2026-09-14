@@ -291,8 +291,3 @@ export function parseGoogleMapsUrl(input: string): { lat: number; lng: number } 
 export function formatCoord(value: number | null): string {
   return value == null ? '—' : value.toFixed(6)
 }
-
-// ---------------------------------------------------------------------------
-// IndexedDB keys for the separately-stored offender links
-// ---------------------------------------------------------------------------
-export const offendersSettingKey = (incidentId: string) => `incident:offenders:${incidentId}`

@@ -2,35 +2,32 @@
 
 import * as React from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { Camera, ImagePlus, Loader2, UploadCloud, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useToast } from '@/hooks/use-toast'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import {
   compressImage,
   createPreviewURL,
   formatSize,
   revokePreviewURL,
 } from '@/lib/fotos/compress'
-import {
-  deletePendingPhoto,
-  getPhotosByEntity,
-  savePendingPhoto,
-} from '@/lib/db'
-import type { PendingPhoto } from '@/lib/db/schema'
-import { processQueue } from '@/lib/sync/queue'
+import { PHOTO_BUCKET, signPhotoUrls } from '@/lib/fotos/urls'
 
-export type PhotoEntityType = PendingPhoto['entity_type']
+export type PhotoEntityType = 'incident' | 'offender'
 
 /** Summary of a single managed photo, emitted through `onPhotosChange`. */
 export interface ManagedPhoto {
   id: string
   position: number
   sizeBytes: number
-  status: PendingPhoto['status']
+  status: 'uploading' | 'done' | 'error'
 }
 
 export interface PhotoUploadProps {
@@ -45,13 +42,13 @@ export interface PhotoUploadProps {
    */
   startPosition?: number
   /**
-   * Pending photo id to hide from this uploader (e.g. the "main" photo managed
-   * by a sibling control that writes to the same entity).
+   * Photo id to hide from this uploader (e.g. the "main" photo managed by a
+   * sibling control that writes to the same entity).
    */
   excludeId?: string
 }
 
-type ItemStatus = 'compressing' | 'saved' | 'uploading' | 'synced' | 'error'
+type ItemStatus = 'compressing' | 'uploading' | 'done' | 'error'
 
 interface UploadItem {
   id: string
@@ -60,22 +57,56 @@ interface UploadItem {
   progress: number
   originalBytes: number
   compressedBytes: number
+  storagePath: string | null
   error?: string
 }
 
 const DEFAULT_MAX_PHOTOS = 10
 
-function toManagedStatus(status: ItemStatus): PendingPhoto['status'] {
-  switch (status) {
-    case 'synced':
-      return 'synced'
-    case 'uploading':
-      return 'syncing'
-    case 'error':
-      return 'error'
-    default:
-      return 'pending'
-  }
+function untyped(): SupabaseClient {
+  return createClient() as unknown as SupabaseClient
+}
+
+function objectPathFor(userId: string, entityType: PhotoEntityType, entityId: string, id: string) {
+  return `${userId}/${entityType}/${entityId}/${id}.jpg`
+}
+
+async function loadExistingPhotos(
+  entityType: PhotoEntityType,
+  entityId: string,
+): Promise<UploadItem[]> {
+  const supabase = untyped()
+  const { data } = await supabase
+    .from('photos')
+    .select('id, storage_path, size_bytes, sort_order')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .order('sort_order', { ascending: true })
+
+  const rows = (data ?? []) as {
+    id: string
+    storage_path: string | null
+    size_bytes: number | null
+    sort_order: number | null
+  }[]
+
+  const signedUrls = await signPhotoUrls(supabase, rows.map((row) => row.storage_path))
+
+  return rows
+    .filter((row) => row.storage_path && signedUrls.has(row.storage_path))
+    .map((row) => ({
+      id: row.id,
+      previewUrl: signedUrls.get(row.storage_path as string) as string,
+      status: 'done' as const,
+      progress: 100,
+      originalBytes: row.size_bytes ?? 0,
+      compressedBytes: row.size_bytes ?? 0,
+      storagePath: row.storage_path,
+    }))
+}
+
+function toManagedStatus(status: ItemStatus): ManagedPhoto['status'] {
+  return status === 'error' ? 'error' : status === 'done' ? 'done' : 'uploading'
 }
 
 export function PhotoUpload({
@@ -87,6 +118,7 @@ export function PhotoUpload({
   excludeId,
 }: PhotoUploadProps) {
   const { toast } = useToast()
+  const { user } = useCurrentUser()
   const [items, setItems] = React.useState<UploadItem[]>([])
   const [isDragging, setIsDragging] = React.useState(false)
 
@@ -99,36 +131,23 @@ export function PhotoUpload({
     itemsRef.current = items
   }, [items])
 
-  // Load any photos already captured offline for this entity.
+  // Load photos already uploaded for this entity.
   React.useEffect(() => {
     let cancelled = false
-    getPhotosByEntity(entityId).then((records) => {
+    loadExistingPhotos(entityType, entityId).then((loaded) => {
       if (cancelled) return
-      const loaded = records
-        .filter((record) => record.id !== excludeId)
-        .slice()
-        .sort((a, b) => a.position - b.position)
-        .map<UploadItem>((record) => ({
-          id: record.id,
-          previewUrl: createPreviewURL(record.blob),
-          status: record.status === 'error' ? 'error' : 'saved',
-          progress: 100,
-          originalBytes: record.size_bytes,
-          compressedBytes: record.size_bytes,
-          error: record.last_error ?? undefined,
-        }))
-      setItems(loaded)
+      setItems(loaded.filter((item) => item.id !== excludeId))
     })
     return () => {
       cancelled = true
     }
-  }, [entityId, excludeId])
+  }, [entityId, entityType, excludeId])
 
-  // Revoke every preview URL when the component unmounts.
+  // Revoke locally-created preview URLs (compression previews) on unmount.
   React.useEffect(() => {
     return () => {
       itemsRef.current.forEach((item) => {
-        if (item.previewUrl) revokePreviewURL(item.previewUrl)
+        if (item.previewUrl && !item.storagePath) revokePreviewURL(item.previewUrl)
       })
     }
   }, [])
@@ -145,26 +164,13 @@ export function PhotoUpload({
     )
   }, [items, onPhotosChange])
 
-  const reconcileWithStore = React.useCallback(async () => {
-    const stored = await getPhotosByEntity(entityId)
-    const byId = new Map(stored.map((record) => [record.id, record]))
-    setItems((prev) =>
-      prev.map((item) => {
-        const record = byId.get(item.id)
-        if (!record) {
-          // Gone from the pending store means the sync engine uploaded it.
-          return { ...item, status: 'synced', progress: 100 }
-        }
-        if (record.status === 'error') {
-          return { ...item, status: 'error', error: record.last_error ?? undefined }
-        }
-        return item
-      }),
-    )
-  }, [entityId])
-
   const processFile = React.useCallback(
     async (file: File) => {
+      if (!user) {
+        toast({ title: 'Aguarde o carregamento do perfil', variant: 'destructive' })
+        return
+      }
+
       const id = uuidv4()
       const originalBytes = file.size
 
@@ -177,6 +183,7 @@ export function PhotoUpload({
           progress: 15,
           originalBytes,
           compressedBytes: 0,
+          storagePath: null,
         },
       ])
 
@@ -188,49 +195,43 @@ export function PhotoUpload({
         setItems((prev) =>
           prev.map((item) =>
             item.id === id
-              ? {
-                  ...item,
-                  previewUrl,
-                  compressedBytes: blob.size,
-                  progress: 70,
-                  status: 'saved',
-                }
+              ? { ...item, previewUrl, compressedBytes: blob.size, progress: 55, status: 'uploading' }
               : item,
           ),
         )
 
-        const record: PendingPhoto = {
-          id,
-          entity_type: entityType,
-          entity_id: entityId,
-          blob,
-          mime_type: blob.type || 'image/jpeg',
-          size_bytes: blob.size,
-          description: '',
-          position,
-          status: 'pending',
-          sync_attempts: 0,
-          last_error: null,
-          created_at: new Date().toISOString(),
-        }
-        await savePendingPhoto(record)
+        const objectPath = objectPathFor(user.id, entityType, entityId, id)
+        const supabase = untyped()
+
+        const { error: uploadError } = await supabase.storage
+          .from(PHOTO_BUCKET)
+          .upload(objectPath, blob, { contentType: blob.type || 'image/jpeg', upsert: true })
+        if (uploadError) throw new Error(uploadError.message)
+
+        const { error: dbError } = await supabase.from('photos').upsert(
+          {
+            id,
+            storage_path: objectPath,
+            public_url: null,
+            entity_type: entityType,
+            entity_id: entityId,
+            description: '',
+            sort_order: position,
+            size_bytes: blob.size,
+            mime_type: blob.type || 'image/jpeg',
+            created_by: user.id,
+          },
+          { onConflict: 'id' },
+        )
+        if (dbError) throw new Error(dbError.message)
 
         setItems((prev) =>
           prev.map((item) =>
-            item.id === id ? { ...item, progress: 100 } : item,
+            item.id === id
+              ? { ...item, status: 'done', progress: 100, storagePath: objectPath }
+              : item,
           ),
         )
-
-        if (typeof navigator !== 'undefined' && navigator.onLine) {
-          setItems((prev) =>
-            prev.map((item) =>
-              item.id === id ? { ...item, status: 'uploading', progress: 90 } : item,
-            ),
-          )
-          void processQueue()
-            .then(reconcileWithStore)
-            .catch(() => reconcileWithStore())
-        }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Falha ao processar a imagem'
@@ -248,7 +249,7 @@ export function PhotoUpload({
         })
       }
     },
-    [entityId, entityType, reconcileWithStore, toast, startPosition],
+    [entityId, entityType, startPosition, toast, user],
   )
 
   const handleFiles = React.useCallback(
@@ -287,30 +288,27 @@ export function PhotoUpload({
 
   const removePhoto = React.useCallback(
     async (id: string) => {
-      await deletePendingPhoto(id)
-
+      const target = itemsRef.current.find((item) => item.id === id)
       setItems((prev) => {
-        const target = prev.find((item) => item.id === id)
-        if (target?.previewUrl) revokePreviewURL(target.previewUrl)
+        if (target?.previewUrl && !target.storagePath) revokePreviewURL(target.previewUrl)
         return prev.filter((item) => item.id !== id)
       })
 
-      // Re-pack positions in the pending store so ordering stays contiguous.
-      const remaining = await getPhotosByEntity(entityId)
+      const supabase = untyped()
+      if (target?.storagePath) {
+        await supabase.storage.from(PHOTO_BUCKET).remove([target.storagePath])
+      }
+      await supabase.from('photos').delete().eq('id', id)
+
+      // Re-pack sort_order for the remaining photos so ordering stays contiguous.
+      const remaining = itemsRef.current.filter((item) => item.id !== id)
       await Promise.all(
-        remaining
-          .filter((record) => record.id !== excludeId)
-          .slice()
-          .sort((a, b) => a.position - b.position)
-          .map((record, index) => {
-            const target = index + startPosition
-            return record.position === target
-              ? Promise.resolve()
-              : savePendingPhoto({ ...record, position: target })
-          }),
+        remaining.map((item, index) =>
+          supabase.from('photos').update({ sort_order: index + startPosition }).eq('id', item.id),
+        ),
       )
     },
-    [entityId, excludeId, startPosition],
+    [startPosition],
   )
 
   const atLimit = items.length >= maxPhotos
@@ -461,11 +459,11 @@ function captionFor(item: UploadItem): string {
       return 'Comprimindo...'
     case 'uploading':
       return 'Enviando...'
-    case 'synced':
-      return 'Sincronizada'
+    case 'done':
+      return 'Enviada'
     case 'error':
       return item.error ?? 'Falha ao processar'
     default:
-      return `${formatSize(item.originalBytes)} → ${formatSize(item.compressedBytes)} · aguardando sync`
+      return formatSize(item.compressedBytes)
   }
 }
