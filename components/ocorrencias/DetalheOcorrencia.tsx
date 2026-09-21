@@ -36,6 +36,7 @@ import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { signPhotoUrls } from '@/lib/fotos/urls'
 import { BuscaMeliante } from '@/components/meliantes/BuscaMeliante'
 import { FormOcorrencia } from '@/components/ocorrencias/FormOcorrencia'
+import { ExportarRelatorioButton } from '@/components/ocorrencias/relatorio/ExportarRelatorioButton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -534,6 +535,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <ExportarRelatorioButton incidentId={id} />
             {perms.canEditIncident && (
               <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                 <Pencil className="h-4 w-4" />
