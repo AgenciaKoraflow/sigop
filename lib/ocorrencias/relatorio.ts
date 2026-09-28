@@ -65,7 +65,6 @@ export interface IncidentReport {
   territorialArea: string | null
   contractor: string | null
   agentName: string | null
-  agentBadge: string | null
   photos: ReportPhoto[]
   offenders: ReportOffender[]
   generatedAt: string
@@ -182,7 +181,7 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
   const [agentRes, linkRes, photoRes, municipality, territorialArea, contractor, logoSrc] =
     await Promise.all([
       createdBy
-        ? supabase.from('profiles').select('full_name, badge_number').eq('id', createdBy).maybeSingle()
+        ? supabase.from('profiles').select('full_name').eq('id', createdBy).maybeSingle()
         : Promise.resolve({ data: null }),
       supabase
         .from('incident_offenders')
@@ -202,7 +201,7 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
       loadOptionalLogo(),
     ])
 
-  const agent = agentRes.data as { full_name: string | null; badge_number: string | null } | null
+  const agent = agentRes.data as { full_name: string | null } | null
 
   // Offenders -----------------------------------------------------------------
   const links = ((linkRes.data ?? []) as unknown as RawLink[]).filter(
@@ -315,7 +314,6 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
     territorialArea,
     contractor,
     agentName: agent?.full_name ?? null,
-    agentBadge: agent?.badge_number ?? null,
     photos: photos.filter((photo): photo is ReportPhoto => photo !== null),
     offenders,
     generatedAt: new Date().toISOString(),

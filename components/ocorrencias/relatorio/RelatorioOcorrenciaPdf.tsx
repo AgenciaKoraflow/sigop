@@ -240,7 +240,6 @@ export function RelatorioOcorrenciaPdf({ report }: { report: IncidentReport }) {
           <Cell label="Tipo" value={typeFull} />
           <Cell label="Data e hora" value={fmt(report.occurredAt, 'dd/MM/yyyy HH:mm')} />
           <Cell label="Contratada" value={report.contractor} />
-          <Cell label="Matrícula" value={report.agentBadge} />
         </View>
 
         <View style={styles.body}>
