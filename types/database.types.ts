@@ -145,6 +145,7 @@ export type Database = {
           address_state: string | null
           address_street: string | null
           address_zip: string | null
+          agent_name: string | null
           created_at: string | null
           created_by: string
           deleted_at: string | null
@@ -173,6 +174,7 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zip?: string | null
+          agent_name?: string | null
           created_at?: string | null
           created_by: string
           deleted_at?: string | null
@@ -201,6 +203,7 @@ export type Database = {
           address_state?: string | null
           address_street?: string | null
           address_zip?: string | null
+          agent_name?: string | null
           created_at?: string | null
           created_by?: string
           deleted_at?: string | null
