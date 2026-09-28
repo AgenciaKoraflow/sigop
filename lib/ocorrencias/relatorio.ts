@@ -307,7 +307,8 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
     internalNumber: clean(incident.internal_number) ?? `OC-${shortId(incidentId)}`,
     type: clean(incident.type) ?? 'other',
     subtype: clean(incident.subtype),
-    description: clean(incident.description) ?? '',
+    // AI-refined text when available; the agent's original text otherwise.
+    description: clean(incident.description_ai) ?? clean(incident.description) ?? '',
     occurredAt: String(incident.occurred_at),
     address,
     municipality,
