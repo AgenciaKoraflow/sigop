@@ -96,6 +96,7 @@ interface IncidentScalar {
   type: string
   subtype: string | null
   description: string | null
+  description_ai: string | null
   occurred_at: string | null
   address_street: string | null
   address_number: string | null
@@ -149,6 +150,7 @@ const FIELD_LABELS: Record<string, string> = {
   type: 'Tipo',
   subtype: 'Subtipo',
   description: 'Descrição',
+  description_ai: 'Descrição (IA)',
   occurred_at: 'Data da ocorrência',
   address_street: 'Logradouro',
   address_number: 'Número',
@@ -209,6 +211,7 @@ function toIncidentScalar(id: string, row: Record<string, unknown>): IncidentSca
     type: str('type') ?? 'other',
     subtype: str('subtype'),
     description: str('description'),
+    description_ai: str('description_ai'),
     occurred_at: str('occurred_at'),
     address_street: str('address_street'),
     address_number: str('address_number'),
@@ -564,7 +567,8 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
           <Detail label="AT" value={incident.territorial_area_name} />
           <Detail
             label="Descrição"
-            value={incident.description}
+            // AI-refined text when available; the agent's original text otherwise.
+            value={incident.description_ai?.trim() || incident.description}
             className="sm:col-span-2"
             multiline
           />
