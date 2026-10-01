@@ -60,7 +60,7 @@ export function IndicatorKpiCards({
   loading?: boolean
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
       {CARDS.map((def) => {
         const Icon = def.icon
         return (

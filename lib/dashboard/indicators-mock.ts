@@ -102,9 +102,9 @@ export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicat
     id: `demo-off-${i + 1}`,
     fullName: seed.fullName,
     nickname: seed.nickname,
-    stopCount: Math.max(2, Math.round(9 - i * 1.3 + rand() * 2)),
-    lastStoppedAt: new Date(now - (i * 2 + rand() * 3) * DAY_MS).toISOString(),
-  })).sort((a, b) => b.stopCount - a.stopCount)
+    incidentCount: Math.max(2, Math.round(9 - i * 1.3 + rand() * 2)),
+    lastOccurredAt: new Date(now - (i * 2 + rand() * 3) * DAY_MS).toISOString(),
+  })).sort((a, b) => b.incidentCount - a.incidentCount)
 
   const agentProductivity = AGENT_SEEDS.map((seed, i) => ({
     id: `demo-agent-${i + 1}`,

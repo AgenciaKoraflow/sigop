@@ -53,19 +53,22 @@ function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
 // ---------------------------------------------------------------------------
 export function TopOffendersTable({ rows }: { rows: TopOffenderRow[] }) {
   return (
-    <TableCard title="Top meliantes" subtitle="Mais abordados no período">
+    <TableCard
+      title="Top meliantes"
+      subtitle="Mais envolvidos em ocorrências no período (suspeito ou autor)"
+    >
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Nome</TableHead>
             <TableHead>Apelido</TableHead>
-            <TableHead className="text-right">Abordagens</TableHead>
-            <TableHead>Última abordagem</TableHead>
+            <TableHead className="text-right">Ocorrências</TableHead>
+            <TableHead>Última ocorrência</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.length === 0 ? (
-            <EmptyRow colSpan={4} label="Nenhuma abordagem no período" />
+            <EmptyRow colSpan={4} label="Nenhum meliante vinculado a ocorrências no período" />
           ) : (
             rows.map((row) => (
               <TableRow key={row.id}>
@@ -80,11 +83,11 @@ export function TopOffendersTable({ rows }: { rows: TopOffenderRow[] }) {
                 </TableCell>
                 <TableCell className="text-ink-secondary">{row.nickname ?? '—'}</TableCell>
                 <TableCell className="text-right font-mono tabular-nums">
-                  {row.stopCount}
+                  {row.incidentCount}
                 </TableCell>
                 <TableCell className="text-ink-secondary">
-                  {row.lastStoppedAt
-                    ? format(parseISO(row.lastStoppedAt), "dd/MM/yyyy 'às' HH:mm", {
+                  {row.lastOccurredAt
+                    ? format(parseISO(row.lastOccurredAt), "dd/MM/yyyy 'às' HH:mm", {
                         locale: ptBR,
                       })
                     : '—'}

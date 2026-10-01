@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   differenceInCalendarDays,
   endOfDay,
+  parseISO,
   startOfDay,
   startOfMonth,
   startOfWeek,
@@ -59,11 +60,13 @@ export function resolveRange(filters: IndicatorFilters): { start: Date; end: Dat
     case 'year':
       return { start: startOfYear(now), end: endOfDay(now) }
     case 'custom':
+      // `parseISO` reads a date-only string as local midnight; `new Date()`
+      // would read it as UTC and shift the whole range one day back in BRT.
       return {
         start: filters.customFrom
-          ? startOfDay(new Date(filters.customFrom))
+          ? startOfDay(parseISO(filters.customFrom))
           : startOfMonth(now),
-        end: filters.customTo ? endOfDay(new Date(filters.customTo)) : endOfDay(now),
+        end: filters.customTo ? endOfDay(parseISO(filters.customTo)) : endOfDay(now),
       }
     case 'all':
     default:
@@ -106,8 +109,9 @@ export interface TopOffenderRow {
   id: string
   fullName: string | null
   nickname: string | null
-  stopCount: number
-  lastStoppedAt: string | null
+  /** Incidents (any type) the offender is linked to as suspect / perpetrator. */
+  incidentCount: number
+  lastOccurredAt: string | null
 }
 
 export interface AgentProductivityRow {
@@ -155,6 +159,8 @@ export interface DashboardIndicators {
 interface StatsPayload {
   total: number
   in_flagrante: number
+  /** Oldest incident in the range — absent before `sql/016`. */
+  first_occurred_at?: string | null
   by_type: Record<string, number>
   stops_total: number
   daily: { day: string; incidents: number; stops: number }[]
@@ -162,8 +168,11 @@ interface StatsPayload {
     id: string
     full_name: string | null
     nickname: string | null
-    stop_count: number | string
-    last_stopped_at: string | null
+    incident_count?: number | string
+    last_occurred_at?: string | null
+    /** Pre-`sql/016` keys (abordagens only). */
+    stop_count?: number | string
+    last_stopped_at?: string | null
   }[]
   agent_productivity: {
     id: string
@@ -193,9 +202,11 @@ function toIndicators(payload: StatsPayload, rangeDays: number): DashboardIndica
     }))
     .sort((a, b) => b.count - a.count)
 
+  // Abordagens are incidents with `type = 'stop'`, i.e. already inside `total`
+  // — the donut needs the two slices to be disjoint.
   const totalStops = Number(payload.stops_total ?? 0)
   const composition: CompositionEntry[] = [
-    { key: 'incidents', label: 'Ocorrências', count: total },
+    { key: 'incidents', label: 'Demais ocorrências', count: Math.max(total - totalStops, 0) },
     { key: 'stops', label: 'Abordagens', count: totalStops },
   ]
 
@@ -218,8 +229,8 @@ function toIndicators(payload: StatsPayload, rangeDays: number): DashboardIndica
       id: row.id,
       fullName: row.full_name,
       nickname: row.nickname,
-      stopCount: Number(row.stop_count ?? 0),
-      lastStoppedAt: row.last_stopped_at,
+      incidentCount: Number(row.incident_count ?? row.stop_count ?? 0),
+      lastOccurredAt: row.last_occurred_at ?? row.last_stopped_at ?? null,
     })),
     agentProductivity: (payload.agent_productivity ?? []).map((row) => ({
       id: row.id,
@@ -248,7 +259,6 @@ export async function fetchDashboardIndicators(
   filters: IndicatorFilters,
 ): Promise<DashboardIndicators> {
   const { start, end } = resolveRange(filters)
-  const rangeDays = Math.max(differenceInCalendarDays(end, start) + 1, 1)
 
   const { data, error } = await untyped().rpc('dashboard_stats', {
     p_unit_id: filters.unitId ?? null,
@@ -263,9 +273,20 @@ export async function fetchDashboardIndicators(
   const hasRealData =
     Number(payload.total ?? 0) > 0 || Number(payload.stops_total ?? 0) > 0
 
-  if (!hasRealData) {
+  // Demo data is a development aid only — in production an empty period must
+  // read as empty, never as made-up names and numbers.
+  if (!hasRealData && process.env.NODE_ENV !== 'production') {
     return buildMockIndicators(filters)
   }
+
+  // "Todos" starts at 2000-01-01, which would flatten the daily average to ~0;
+  // measure it from the first real record instead.
+  const firstRecord =
+    filters.period === 'all' && payload.first_occurred_at
+      ? parseISO(payload.first_occurred_at)
+      : null
+  const rangeStart = firstRecord && firstRecord > start ? firstRecord : start
+  const rangeDays = Math.max(differenceInCalendarDays(end, rangeStart) + 1, 1)
 
   return toIndicators(payload, rangeDays)
 }
@@ -328,12 +349,12 @@ export function buildIndicatorsCsv(
     '',
     csvSection(
       'Top meliantes',
-      ['Nome', 'Apelido', 'Total de abordagens', 'Última abordagem'],
+      ['Nome', 'Apelido', 'Total de ocorrências', 'Última ocorrência'],
       data.topOffenders.map((o) => [
         o.fullName ?? '—',
         o.nickname ?? '—',
-        o.stopCount,
-        o.lastStoppedAt ? new Date(o.lastStoppedAt).toLocaleString('pt-BR') : '—',
+        o.incidentCount,
+        o.lastOccurredAt ? new Date(o.lastOccurredAt).toLocaleString('pt-BR') : '—',
       ]),
     ),
     '',
