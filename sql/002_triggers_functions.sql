@@ -95,10 +95,19 @@ CREATE TRIGGER tr_offenders_version
 -- =============================================
 -- TRIGGER: create a profile when a user signs up
 -- =============================================
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+-- NOTE: superseded by 014_handle_new_user_fix.sql (adds `email`). If this file
+-- is ever re-run on an existing database, re-run 014 afterwards.
+-- The search_path is declared inline on purpose: the Auth service's role does
+-- not have `public` on its search_path, and a pin applied with a separate
+-- ALTER FUNCTION is lost on the next CREATE OR REPLACE.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 BEGIN
-  INSERT INTO profiles (id, full_name, role)
+  INSERT INTO public.profiles (id, full_name, role)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
@@ -106,7 +115,7 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DROP TRIGGER IF EXISTS tr_auth_create_profile ON auth.users;
 CREATE TRIGGER tr_auth_create_profile

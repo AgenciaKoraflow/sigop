@@ -29,10 +29,14 @@ WHERE u.id = p.id
 -- the unqualified `profiles` reference fails with "relation does not exist").
 -- Re-apply that pin in the same statement so replacing the body never silently
 -- un-hardens it again.
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 BEGIN
-  INSERT INTO profiles (id, full_name, role, email)
+  INSERT INTO public.profiles (id, full_name, role, email)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
@@ -41,8 +45,6 @@ BEGIN
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-ALTER FUNCTION handle_new_user() SET search_path = public, pg_temp;
+$$;
 
 -- Trigger already exists (tr_auth_create_profile); CREATE OR REPLACE above is enough.

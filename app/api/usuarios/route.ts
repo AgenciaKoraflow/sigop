@@ -40,9 +40,18 @@ export async function POST(request: Request) {
     const duplicate =
       error?.code === 'email_exists' ||
       /already been registered|already exists/i.test(error?.message ?? '')
+    // "Database error creating new user" = the `handle_new_user` trigger on
+    // auth.users raised (see sql/014_handle_new_user_fix.sql).
+    const triggerFailure = /database error/i.test(error?.message ?? '')
+    if (triggerFailure) console.error('[usuarios] createUser failed in the profile trigger:', error)
+    const message = duplicate
+      ? 'Já existe um usuário com esse e-mail.'
+      : triggerFailure
+        ? 'O banco recusou a criação do perfil do usuário (trigger handle_new_user). Avise o suporte técnico.'
+        : error?.message ?? 'Falha ao criar o usuário.'
     return NextResponse.json(
-      { error: duplicate ? 'Já existe um usuário com esse e-mail.' : error?.message ?? 'Falha ao criar o usuário.' },
-      { status: duplicate ? 409 : 400 },
+      { error: message },
+      { status: duplicate ? 409 : triggerFailure ? 500 : 400 },
     )
   }
 
