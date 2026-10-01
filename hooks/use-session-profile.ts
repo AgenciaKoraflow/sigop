@@ -34,11 +34,16 @@ async function fetchSessionProfile(): Promise<SessionProfile | null> {
   const authUser = session?.user
   if (!authUser) return null
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('full_name, role, photo_url')
     .eq('id', authUser.id)
-    .single()
+    .maybeSingle()
+
+  // A failed request is not "signed out": throw so the query retries and keeps
+  // the previous data, instead of caching `null` for the whole staleTime (which
+  // showed "Não autenticado" and made ProtectedRoute bounce to /login).
+  if (error) throw error
 
   const profile = data as
     | { full_name: string; role: string; photo_url: string | null }
