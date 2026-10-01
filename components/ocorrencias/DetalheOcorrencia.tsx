@@ -16,6 +16,7 @@ import {
   Loader2,
   MapPin,
   Pencil,
+  Trash2,
   UserPlus,
 } from 'lucide-react'
 
@@ -26,6 +27,7 @@ import { useCurrentUser, initials } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
 import { MAX_PHOTOS_PER_INCIDENT, offenderRoleLabel } from '@/lib/ocorrencias/form'
 import {
+  deleteIncident,
   getContractorNameForTerritorialArea,
   getMunicipalityName,
   getTerritorialAreaName,
@@ -45,6 +47,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -295,8 +298,10 @@ async function loadIncidentDetail(
       : Promise.resolve({ data: [] as RawAuditRow[] }),
   ])
 
-  const offenders: LinkedOffenderView[] = ((linkRes.data ?? []) as unknown as RawOffenderLink[]).map(
-    (link) => ({
+  // A null join means the offender was deleted (hidden by RLS) — skip the link.
+  const offenders: LinkedOffenderView[] = ((linkRes.data ?? []) as unknown as RawOffenderLink[])
+    .filter((link) => link.offenders)
+    .map((link) => ({
       linkId: link.id,
       offenderId: link.offenders?.id ?? link.offender_id,
       role: link.role,
@@ -307,8 +312,7 @@ async function loadIncidentDetail(
         'Sem nome',
       nickname: link.offenders?.nickname ?? null,
       photoUrl: link.offenders?.main_photo_url ?? null,
-    }),
-  )
+    }))
 
   const auditRows = (auditRes.data ?? []) as unknown as RawAuditRow[]
 
@@ -397,6 +401,8 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
   const [editing, setEditing] = React.useState(() => searchParams.get('edit') === '1')
   const [showUpload, setShowUpload] = React.useState(false)
   const [linkOpen, setLinkOpen] = React.useState(false)
+  const [confirmDelete, setConfirmDelete] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
 
   const queryKey = React.useMemo(
     () => ['incident-detail', id, perms.canViewAuditLog] as const,
@@ -442,6 +448,25 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
     },
     [id, refresh, toast, user],
   )
+
+  const handleDelete = React.useCallback(async () => {
+    setDeleting(true)
+    try {
+      await deleteIncident(id)
+      toast({ title: 'Ocorrência excluída' })
+      void queryClient.invalidateQueries({ queryKey: ['records'] })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.removeQueries({ queryKey: ['incident-detail', id] })
+      router.push('/ocorrencias')
+    } catch (error) {
+      toast({
+        title: 'Não foi possível excluir a ocorrência',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+        variant: 'destructive',
+      })
+      setDeleting(false)
+    }
+  }, [id, queryClient, router, toast])
 
   // -----------------------------------------------------------------------
   // Render states
@@ -543,6 +568,12 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
               <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                 <Pencil className="h-4 w-4" />
                 Editar
+              </Button>
+            )}
+            {perms.canDelete && (
+              <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-4 w-4" />
+                Excluir
               </Button>
             )}
           </div>
@@ -753,6 +784,27 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
             onSelect={(selected) => void linkOffender(selected.id)}
             onCreateNew={() => router.push('/meliantes/nova')}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmDelete} onOpenChange={(open) => !deleting && setConfirmDelete(open)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir esta ocorrência?</DialogTitle>
+            <DialogDescription>
+              A ocorrência {internalNumber} deixa de aparecer nas listas, no dashboard e nas
+              fichas dos meliantes vinculados. Essa ação não pode ser desfeita pelo aplicativo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={() => void handleDelete()} disabled={deleting}>
+              {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Excluir
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

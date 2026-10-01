@@ -5,12 +5,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ArrowLeft, Check, Copy, KeyRound, Loader2, Pencil, Power } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, Check, Copy, KeyRound, Loader2, Pencil, Power, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import {
+  deleteUser,
   getUserDetail,
   resetUserPassword,
   updateUser,
@@ -41,6 +43,7 @@ function fmtDay(iso: string | null): string {
 
 export function DetalheUsuario({ id }: { id: string }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { toast } = useToast()
   const { user: currentUser } = useCurrentUser()
 
@@ -51,6 +54,7 @@ export function DetalheUsuario({ id }: { id: string }) {
 
   const [busy, setBusy] = React.useState(false)
   const [confirmToggle, setConfirmToggle] = React.useState(false)
+  const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [newPassword, setNewPassword] = React.useState<string | null>(null)
 
   const load = React.useCallback(async () => {
@@ -91,6 +95,23 @@ export function DetalheUsuario({ id }: { id: string }) {
         variant: 'destructive',
       })
     } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleDelete() {
+    setBusy(true)
+    try {
+      await deleteUser(id)
+      toast({ title: 'Usuário excluído' })
+      void queryClient.invalidateQueries({ queryKey: ['users'] })
+      router.push('/usuarios')
+    } catch (error) {
+      toast({
+        title: 'Não foi possível excluir o usuário',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+        variant: 'destructive',
+      })
       setBusy(false)
     }
   }
@@ -188,7 +209,7 @@ export function DetalheUsuario({ id }: { id: string }) {
         <h2 className="text-lg font-semibold text-ink">Ações</h2>
         {isSelf && (
           <p className="rounded-input border border-sync-pending-text/20 bg-sync-pending-bg px-3 py-2 text-xs font-medium text-sync-pending-text">
-            Você não pode desativar a própria conta nem alterar o próprio papel.
+            Você não pode desativar ou excluir a própria conta nem alterar o próprio papel.
           </p>
         )}
         <div className="flex flex-wrap gap-2">
@@ -204,8 +225,38 @@ export function DetalheUsuario({ id }: { id: string }) {
             <Power className="h-4 w-4" />
             {detail.isActive ? 'Desativar acesso' : 'Reativar acesso'}
           </Button>
+          <Button
+            variant="destructive"
+            onClick={() => setConfirmDelete(true)}
+            disabled={busy || isSelf}
+          >
+            <Trash2 className="h-4 w-4" />
+            Excluir usuário
+          </Button>
         </div>
       </section>
+
+      {/* Delete confirmation */}
+      <Dialog open={confirmDelete} onOpenChange={(open) => !busy && setConfirmDelete(open)}>
+        <DialogContent className="max-w-md" aria-describedby="delete-user">
+          <DialogHeader>
+            <DialogTitle>Excluir este usuário?</DialogTitle>
+            <DialogDescription id="delete-user">
+              O login de {detail.fullName} será removido em definitivo e não poderá ser
+              recuperado. Os registros criados por ele continuam no sistema.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={busy}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={busy}>
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Toggle confirmation */}
       <Dialog open={confirmToggle} onOpenChange={(open) => !busy && setConfirmToggle(open)}>

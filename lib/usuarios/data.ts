@@ -89,26 +89,35 @@ function rowToItem(row: ProfileRow): UserListItem {
 }
 
 export async function listUsers(filters: UserFilters): Promise<UsersPage> {
-  let query = untyped()
-    .from('profiles')
-    .select(SELECT_COLUMNS, { count: 'exact' })
+  const run = (hideDeleted: boolean) => {
+    let query = untyped()
+      .from('profiles')
+      .select(SELECT_COLUMNS, { count: 'exact' })
 
-  if (filters.role) query = query.eq('role', filters.role)
-  if (filters.status) query = query.eq('is_active', filters.status === 'active')
+    if (hideDeleted) query = query.is('deleted_at', null)
+    if (filters.role) query = query.eq('role', filters.role)
+    if (filters.status) query = query.eq('is_active', filters.status === 'active')
 
-  const term = sanitize(filters.search)
-  if (term) {
-    query = query.or(
-      ['full_name', 'email', 'badge_number']
-        .map((column) => `${column}.ilike.%${term}%`)
-        .join(','),
-    )
+    const term = sanitize(filters.search)
+    if (term) {
+      query = query.or(
+        ['full_name', 'email', 'badge_number']
+          .map((column) => `${column}.ilike.%${term}%`)
+          .join(','),
+      )
+    }
+
+    const start = (filters.page - 1) * USERS_PAGE_SIZE
+    return query
+      .order('full_name', { ascending: true })
+      .range(start, start + USERS_PAGE_SIZE - 1)
   }
 
-  const start = (filters.page - 1) * USERS_PAGE_SIZE
-  const { data, count, error } = await query
-    .order('full_name', { ascending: true })
-    .range(start, start + USERS_PAGE_SIZE - 1)
+  let { data, count, error } = await run(true)
+  // `profiles.deleted_at` only exists once sql/015 is applied.
+  if (error && /deleted_at/i.test(error.message)) {
+    ;({ data, count, error } = await run(false))
+  }
 
   if (error) throw new Error(error.message)
 
@@ -187,6 +196,10 @@ export function updateUser(id: string, input: UpdateUserInput): Promise<{ id: st
     method: 'PATCH',
     body: JSON.stringify(input),
   })
+}
+
+export function deleteUser(id: string): Promise<{ id: string }> {
+  return callApi(`/api/usuarios/${id}`, { method: 'DELETE' })
 }
 
 export function resetUserPassword(id: string): Promise<{ password: string }> {

@@ -223,6 +223,20 @@ export async function getOffenderDetail(id: string): Promise<OffenderDetail | nu
 }
 
 // ---------------------------------------------------------------------------
+// Delete — via the Route Handler (administrators only)
+// ---------------------------------------------------------------------------
+export async function deleteOffender(id: string): Promise<void> {
+  const res = await fetch(`/api/meliantes/${id}`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || 'Não foi possível excluir o meliante.')
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Raw join shapes
 // ---------------------------------------------------------------------------
 interface RawIncidentLink {

@@ -5,11 +5,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ArrowLeft, FileText, Loader2, MapPin, Pencil, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, FileText, Loader2, MapPin, Pencil, ShieldAlert, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { initials } from '@/hooks/use-current-user'
+import { usePermissions } from '@/hooks/use-permissions'
+import { useToast } from '@/hooks/use-toast'
 import {
+  deleteOffender,
   getOffenderDetail,
   type OffenderDetail,
 } from '@/lib/meliantes/data'
@@ -22,6 +25,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 function fmtDay(iso: string | null): string {
   if (!iso) return '—'
@@ -42,11 +53,31 @@ function fmtAddress(
 export default function OffenderDetailPage({ params }: { params: { id: string } }) {
   const { id } = params
   const router = useRouter()
+  const { toast } = useToast()
+  const perms = usePermissions()
 
   const [detail, setDetail] = React.useState<OffenderDetail | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [notFound, setNotFound] = React.useState(false)
   const [editing, setEditing] = React.useState(false)
+  const [confirmDelete, setConfirmDelete] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await deleteOffender(id)
+      toast({ title: 'Meliante excluído' })
+      router.push('/meliantes')
+    } catch (error) {
+      toast({
+        title: 'Não foi possível excluir o meliante',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+        variant: 'destructive',
+      })
+      setDeleting(false)
+    }
+  }
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -147,10 +178,18 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
           </div>
         </div>
 
-        <Button variant="primary" onClick={() => setEditing(true)}>
-          <Pencil className="h-4 w-4" />
-          Editar
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="primary" onClick={() => setEditing(true)}>
+            <Pencil className="h-4 w-4" />
+            Editar
+          </Button>
+          {perms.canDelete && (
+            <Button variant="destructive" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="h-4 w-4" />
+              Excluir
+            </Button>
+          )}
+        </div>
       </header>
 
       {/* Identificação ------------------------------------------------- */}
@@ -229,6 +268,29 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
         <h2 className="text-lg font-semibold text-ink">Galeria de fotos</h2>
         <PhotoGallery entityId={id} entityType="offender" remotePhotos={photos} />
       </section>
+
+      {/* Delete confirmation ------------------------------------------- */}
+      <Dialog open={confirmDelete} onOpenChange={(open) => !deleting && setConfirmDelete(open)}>
+        <DialogContent className="max-w-md" aria-describedby="delete-offender">
+          <DialogHeader>
+            <DialogTitle>Excluir este meliante?</DialogTitle>
+            <DialogDescription id="delete-offender">
+              A ficha de {name} deixa de aparecer nas buscas e nas ocorrências vinculadas
+              {incidents.length > 0 ? ` (${incidents.length})` : ''}. Essa ação não pode ser
+              desfeita pelo aplicativo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

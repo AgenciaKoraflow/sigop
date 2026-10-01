@@ -3,9 +3,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 
 /**
- * Shared authorization gate for the user-management Route Handlers.
+ * Shared authorization gate for the admin-only Route Handlers.
  *
- * Every `app/api/usuarios/**` handler must call this first: it confirms the
+ * Every `app/api/**` handler must call this first: it confirms the
  * caller is signed in AND holds the `administrator` role (checked against
  * `profiles`, not just a client claim). On failure it returns a ready-made
  * `NextResponse`; on success it hands back the caller's auth id.
@@ -38,7 +38,7 @@ export async function requireAdmin(): Promise<AdminGate> {
     return {
       ok: false,
       response: NextResponse.json(
-        { error: 'Apenas administradores podem gerenciar usuários.' },
+        { error: 'Apenas administradores podem realizar esta ação.' },
         { status: 403 },
       ),
     }

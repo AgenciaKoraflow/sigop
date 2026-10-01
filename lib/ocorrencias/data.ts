@@ -122,6 +122,18 @@ export async function getTerritorialAreaName(id: string): Promise<string | null>
   return (data as { name: string } | null)?.name ?? null
 }
 
+/** Delete an incident through the Route Handler (administrators only). */
+export async function deleteIncident(id: string): Promise<void> {
+  const res = await fetch(`/api/ocorrencias/${id}`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error || 'Não foi possível excluir a ocorrência.')
+  }
+}
+
 /** Resolve the contractor that owns a territorial area (used by the detail screen). */
 export async function getContractorNameForTerritorialArea(
   territorialAreaId: string,

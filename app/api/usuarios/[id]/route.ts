@@ -76,3 +76,68 @@ export async function PATCH(
 
   return NextResponse.json({ id: params.id })
 }
+
+/** DELETE /api/usuarios/[id] — remove a user for good. */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } },
+) {
+  const gate = await requireAdmin()
+  if (!gate.ok) return gate.response
+
+  if (params.id === gate.userId) {
+    return NextResponse.json({ error: 'Você não pode excluir a própria conta.' }, { status: 400 })
+  }
+
+  let admin
+  try {
+    admin = createAdminClient()
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Configuração do servidor ausente.' },
+      { status: 503 },
+    )
+  }
+  const db = admin as unknown as SupabaseClient
+
+  // A user with no history is removed outright (the profile cascades from auth.users).
+  const { error: hardError } = await admin.auth.admin.deleteUser(params.id)
+  if (!hardError) return NextResponse.json({ id: params.id })
+  if (hardError.status === 404) {
+    return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 })
+  }
+
+  // Incidents, offenders, photos and audit entries reference the profile, so a
+  // user with history cannot be dropped without losing authorship. Soft-delete
+  // instead: the login is destroyed (and the e-mail freed) while the profile
+  // row stays behind, hidden from the listing.
+  const { error: markError } = await db
+    .from('profiles')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', params.id)
+  if (markError) {
+    const missingColumn = /deleted_at/i.test(markError.message)
+    return NextResponse.json(
+      {
+        error: missingColumn
+          ? 'Este usuário possui registros no sistema. Para excluí-lo, aplique a migração sql/015_profiles_deleted_at.sql no banco.'
+          : markError.message,
+      },
+      { status: missingColumn ? 409 : 400 },
+    )
+  }
+
+  const { error: softError } = await admin.auth.admin.deleteUser(params.id, true)
+  if (softError) {
+    await db.from('profiles').update({ deleted_at: null }).eq('id', params.id)
+    return NextResponse.json({ error: softError.message }, { status: 500 })
+  }
+
+  // Free the unique identifiers so they can be reused by a new user.
+  await db
+    .from('profiles')
+    .update({ is_active: false, badge_number: null, email: null })
+    .eq('id', params.id)
+
+  return NextResponse.json({ id: params.id })
+}

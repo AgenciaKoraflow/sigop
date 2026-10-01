@@ -437,6 +437,7 @@ export type Database = {
         Row: {
           badge_number: string | null
           created_at: string | null
+          deleted_at: string | null
           email: string | null
           full_name: string
           id: string
@@ -449,6 +450,7 @@ export type Database = {
         Insert: {
           badge_number?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
           full_name: string
           id: string
@@ -461,6 +463,7 @@ export type Database = {
         Update: {
           badge_number?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
           full_name?: string
           id?: string
