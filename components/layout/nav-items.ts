@@ -24,7 +24,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { label: 'Início', href: '/', icon: LayoutDashboard },
   { label: 'Ocorrências', href: '/ocorrencias', icon: FileText },
   { label: 'Meliantes', href: '/meliantes', icon: Users },
   { label: 'Painel', href: '/dashboard', icon: BarChart2, supervisorOnly: true },
@@ -42,5 +42,5 @@ export function getSectionTitle(pathname: string): string {
   const match = NAV_ITEMS.filter((item) => item.href !== '/').find((item) =>
     isNavItemActive(pathname, item.href),
   )
-  return match?.label ?? 'Dashboard'
+  return match?.label ?? 'Início'
 }
