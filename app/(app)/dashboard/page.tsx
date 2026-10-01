@@ -2,7 +2,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { OperationalDashboard } from '@/components/dashboard/OperationalDashboard'
 
 export const metadata = {
-  title: 'Dashboard operacional · SIGOP',
+  title: 'Painel operacional · SIGOP',
 }
 
 export default function DashboardPage() {

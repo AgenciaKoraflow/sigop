@@ -27,7 +27,7 @@ export function ExportMenu({ data, filters, disabled }: Props) {
 
   function handleCsv() {
     if (!data) return
-    downloadCsv(`sigop-dashboard-${stamp}.csv`, buildIndicatorsCsv(data, filters))
+    downloadCsv(`sigop-painel-${stamp}.csv`, buildIndicatorsCsv(data, filters))
   }
 
   function handlePdf() {

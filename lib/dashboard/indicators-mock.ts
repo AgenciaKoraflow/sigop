@@ -1,9 +1,12 @@
 import { differenceInCalendarDays } from 'date-fns'
 import { INCIDENT_TYPE_LABELS } from '@/lib/dashboard/labels'
 import {
+  DAILY_SERIES_MAX_DAYS,
   resolveRange,
   type DashboardIndicators,
+  type GeoBreakdown,
   type IndicatorFilters,
+  type WeekdayHourCell,
 } from './indicators'
 
 /**
@@ -26,12 +29,13 @@ function mulberry32(seed: number) {
 }
 
 const TYPE_WEIGHTS: Record<string, number> = {
-  theft: 32,
-  robbery: 14,
-  vandalism: 20,
-  in_flagrante: 9,
-  suspicious: 18,
-  other: 7,
+  theft: 30,
+  stop: 22,
+  vandalism: 16,
+  suspicious: 13,
+  robbery: 9,
+  in_flagrante: 6,
+  other: 4,
 }
 
 const OFFENDER_SEEDS = [
@@ -44,39 +48,83 @@ const OFFENDER_SEEDS = [
 ]
 
 const AGENT_SEEDS = [
-  { fullName: 'Sd. Carla Menezes', badgeNumber: '10432' },
-  { fullName: 'Sd. Bruno Tavares', badgeNumber: '10871' },
-  { fullName: 'Cb. Patrícia Gomes', badgeNumber: '09218' },
-  { fullName: 'Sd. Rodrigo Faria', badgeNumber: '11004' },
-  { fullName: 'Sgt. Helena Prado', badgeNumber: '07655' },
+  { fullName: 'Carla Menezes', badgeNumber: '10432' },
+  { fullName: 'Bruno Tavares', badgeNumber: '10871' },
+  { fullName: 'Patrícia Gomes', badgeNumber: '09218' },
+  { fullName: 'Rodrigo Faria', badgeNumber: '11004' },
+  { fullName: 'Helena Prado', badgeNumber: '07655' },
 ]
+
+const GEO_SEEDS = {
+  contractor: [
+    { name: 'ICOMON_CENTRO', detail: null, weight: 30 },
+    { name: 'ICOMON_LESTE', detail: null, weight: 22 },
+    { name: 'ABILITY_OS', detail: null, weight: 17 },
+    { name: 'ICOMON_ABCD', detail: null, weight: 12 },
+    { name: 'ABILITY_SJ', detail: null, weight: 7 },
+  ],
+  municipality: [
+    { name: 'SAO PAULO', detail: null, weight: 41 },
+    { name: 'OSASCO', detail: null, weight: 17 },
+    { name: 'SANTO ANDRE', detail: null, weight: 12 },
+    { name: 'SAO JOSE DOS CAMPOS', detail: null, weight: 9 },
+    { name: 'DIADEMA', detail: null, weight: 6 },
+  ],
+  territorialArea: [
+    { name: 'SPO_CT', detail: 'SAO PAULO', weight: 16 },
+    { name: 'SPO_PE', detail: 'SAO PAULO', weight: 13 },
+    { name: 'OCO_CT', detail: 'OSASCO', weight: 11 },
+    { name: 'SAD_VA', detail: 'SANTO ANDRE', weight: 9 },
+    { name: 'SPO_TA', detail: 'SAO PAULO', weight: 8 },
+    { name: 'SJC_CT', detail: 'SAO JOSE DOS CAMPOS', weight: 6 },
+  ],
+}
+
+const pct = (count: number, total: number) =>
+  total > 0 ? Math.round((count / total) * 100) : 0
+
+function mockGeo(
+  seeds: { name: string; detail: string | null; weight: number }[],
+  prefix: string,
+  total: number,
+): GeoBreakdown {
+  const entries = seeds.map((seed, i) => {
+    const count = Math.max(1, Math.round((seed.weight / 100) * total))
+    return {
+      id: `demo-${prefix}-${i + 1}`,
+      name: seed.name,
+      detail: seed.detail,
+      count,
+      pct: pct(count, total),
+    }
+  })
+  const assigned = entries.reduce((sum, e) => sum + e.count, 0)
+  return { entries, unassigned: Math.max(total - assigned, 0) }
+}
 
 export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicators {
   const { start, end } = resolveRange(filters)
   const now = Date.now()
   const rand = mulberry32(42)
 
-  // Cap the daily series the same way the RPC does (92 days).
+  // Cap the daily series the same way the RPC does.
   const spanDays = Math.min(
     Math.max(differenceInCalendarDays(end, start) + 1, 14),
-    92,
+    DAILY_SERIES_MAX_DAYS,
   )
   const seriesStart = end.getTime() - (spanDays - 1) * DAY_MS
 
-  const daily = Array.from({ length: spanDays }, (_, i) => {
+  const points = Array.from({ length: spanDays }, (_, i) => {
     const day = new Date(seriesStart + i * DAY_MS)
     const weekday = day.getDay()
     const weekendDip = weekday === 0 || weekday === 6 ? 0.55 : 1
     return {
-      day: day.toISOString().slice(0, 10),
+      bucket: day.toISOString().slice(0, 10),
       incidents: Math.round((2 + rand() * 7) * weekendDip),
-      stops: Math.round((1 + rand() * 5) * weekendDip),
     }
   })
 
-  const totalIncidents = daily.reduce((sum, d) => sum + d.incidents, 0)
-  const totalStops = daily.reduce((sum, d) => sum + d.stops, 0)
-  const rangeDays = Math.max(differenceInCalendarDays(end, start) + 1, 1)
+  const totalIncidents = points.reduce((sum, d) => sum + d.incidents, 0)
 
   const weightSum = Object.values(TYPE_WEIGHTS).reduce((a, b) => a + b, 0)
   const byType = Object.entries(TYPE_WEIGHTS)
@@ -86,36 +134,47 @@ export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicat
         type,
         label: INCIDENT_TYPE_LABELS[type] ?? type,
         count,
-        pct: totalIncidents > 0 ? Math.round((count / totalIncidents) * 100) : 0,
+        pct: pct(count, totalIncidents),
       }
     })
     .sort((a, b) => b.count - a.count)
 
-  const flagranteIncidents = byType.find((t) => t.type === 'in_flagrante')?.count ?? 0
-
-  const composition = [
-    { key: 'incidents' as const, label: 'Ocorrências', count: totalIncidents },
-    { key: 'stops' as const, label: 'Abordagens', count: totalStops },
-  ]
+  // Night-heavy pattern, busier Thursday–Saturday.
+  const weekdayHour: WeekdayHourCell[] = []
+  for (let dow = 0; dow < 7; dow += 1) {
+    for (let hour = 0; hour < 24; hour += 1) {
+      const night = hour >= 19 || hour <= 2 ? 1 : hour >= 8 && hour <= 17 ? 0.45 : 0.15
+      const weekend = dow >= 4 ? 1.4 : 1
+      const count = Math.round(rand() * 6 * night * weekend)
+      if (count > 0) weekdayHour.push({ dow, hour, count })
+    }
+  }
 
   const topOffenders = OFFENDER_SEEDS.map((seed, i) => ({
     id: `demo-off-${i + 1}`,
     fullName: seed.fullName,
     nickname: seed.nickname,
-    incidentCount: Math.max(2, Math.round(9 - i * 1.3 + rand() * 2)),
+    incidentCount: Math.max(1, Math.round(9 - i * 1.5 + rand() * 2)),
     lastOccurredAt: new Date(now - (i * 2 + rand() * 3) * DAY_MS).toISOString(),
   })).sort((a, b) => b.incidentCount - a.incidentCount)
 
-  const agentProductivity = AGENT_SEEDS.map((seed, i) => ({
-    id: `demo-agent-${i + 1}`,
-    fullName: seed.fullName,
-    badgeNumber: seed.badgeNumber,
-    incidentsCreated: Math.max(1, Math.round(totalIncidents / (4 + i) + rand() * 3)),
-    stopsCreated: Math.max(0, Math.round(totalStops / (5 + i) + rand() * 2)),
-  })).sort((a, b) => b.incidentsCreated - a.incidentsCreated)
+  const agentShares = [0.34, 0.25, 0.19, 0.13, 0.09]
+  const agentProductivity = AGENT_SEEDS.map((seed, i) => {
+    const incidentsCreated = Math.max(1, Math.round(totalIncidents * agentShares[i]))
+    return {
+      id: `demo-agent-${i + 1}`,
+      fullName: seed.fullName,
+      badgeNumber: seed.badgeNumber,
+      incidentsCreated,
+      pct: pct(incidentsCreated, totalIncidents),
+      lastOccurredAt: new Date(now - (i * 5 + rand() * 4) * 60 * 60 * 1000).toISOString(),
+    }
+  })
 
+  const areas = GEO_SEEDS.territorialArea
   const recentIncidents = Array.from({ length: 5 }, (_, i) => {
     const type = byType[i % byType.length]
+    const area = areas[i % areas.length]
     return {
       id: `demo-recent-${i + 1}`,
       internalNumber: `OC-2026-${String(41 - i).padStart(6, '0')}`,
@@ -123,23 +182,36 @@ export function buildMockIndicators(filters: IndicatorFilters): DashboardIndicat
       typeLabel: type.label,
       occurredAt: new Date(now - (i * 6 + rand() * 4) * 60 * 60 * 1000).toISOString(),
       agentName: AGENT_SEEDS[i % AGENT_SEEDS.length].fullName,
+      location: `${area.name} · ${area.detail}`,
     }
   })
+
+  const peak = points.reduce((best, p) => (p.incidents > best.incidents ? p : best), points[0])
 
   return {
     kpis: {
       totalIncidents,
-      totalStops,
-      flagranteIncidents,
-      avgIncidentsPerDay:
-        rangeDays > 0 ? Math.round((totalIncidents / rangeDays) * 10) / 10 : totalIncidents,
+      previousTotal:
+        filters.period === 'all' ? null : Math.round(totalIncidents * 0.88),
+      avgIncidentsPerDay: Math.round((totalIncidents / spanDays) * 10) / 10,
+      peakDay: { day: peak.bucket, count: peak.incidents },
+      offendersInvolved: 14,
+      repeatOffenders: topOffenders.filter((o) => o.incidentCount >= 2).length,
+      incidentsWithOffender: Math.round(totalIncidents * 0.37),
+      activeAgents: agentProductivity.length,
     },
-    daily,
+    volume: { granularity: 'day', points },
     byType,
-    composition,
+    weekdayHour,
+    geography: {
+      contractor: mockGeo(GEO_SEEDS.contractor, 'ct', totalIncidents),
+      municipality: mockGeo(GEO_SEEDS.municipality, 'mun', totalIncidents),
+      territorialArea: mockGeo(GEO_SEEDS.territorialArea, 'at', totalIncidents),
+    },
     topOffenders,
     agentProductivity,
     recentIncidents,
+    isLegacyPayload: false,
     isMock: true,
     generatedAt: new Date().toISOString(),
   }

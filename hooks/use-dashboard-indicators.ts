@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -32,6 +32,8 @@ export function useDashboardIndicators(filters: IndicatorFilters) {
       Boolean(filters.customFrom && filters.customTo),
     staleTime: TWO_MINUTES,
     gcTime: 15 * 60 * 1000,
+    // Keep the previous filter's numbers on screen while the new ones load.
+    placeholderData: keepPreviousData,
     retry: 1,
     refetchOnWindowFocus: false,
   })

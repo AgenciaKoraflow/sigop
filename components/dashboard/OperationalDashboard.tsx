@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { AlertTriangle, FlaskConical, Lock } from 'lucide-react'
+import { cn } from '@/lib/utils/cn'
 import { usePermissions } from '@/hooks/use-permissions'
 import {
   useDashboardIndicators,
@@ -14,9 +15,10 @@ import { PeriodFilter } from './indicators/PeriodFilter'
 import { ExportMenu } from './indicators/ExportMenu'
 import { IndicatorKpiCards } from './indicators/IndicatorKpiCards'
 import {
-  CompositionDonutChart,
+  GeographyChart,
   TypeDistributionChart,
   VolumeChart,
+  WeekdayHourHeatmap,
 } from './indicators/IndicatorCharts'
 import {
   AgentProductivityTable,
@@ -31,7 +33,8 @@ export function OperationalDashboard() {
   const patch = (next: Partial<IndicatorFilters>) =>
     setFilters((prev) => ({ ...prev, ...next }))
 
-  const { data, isLoading, isError, isFetching } = useDashboardIndicators(filters)
+  const { data, isLoading, isError, isFetching, isPlaceholderData } =
+    useDashboardIndicators(filters)
   const units = useUnits(isAdmin)
 
   // Role still resolving — avoid flashing "access denied".
@@ -58,7 +61,7 @@ export function OperationalDashboard() {
           </span>
           <h1 className="text-lg font-semibold text-ink">Acesso restrito</h1>
           <p className="mt-2 text-sm text-ink-secondary">
-            O dashboard de indicadores operacionais está disponível apenas para
+            O painel de indicadores operacionais está disponível apenas para
             supervisores e administradores. Fale com a coordenação se você precisa
             desse acesso.
           </p>
@@ -71,9 +74,9 @@ export function OperationalDashboard() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-0.5">
-          <h1 className="text-2xl font-bold text-ink">Dashboard operacional</h1>
+          <h1 className="text-2xl font-bold text-ink">Painel operacional</h1>
           <p className="text-sm text-ink-secondary">
-            Indicadores consolidados de ocorrências e abordagens
+            Indicadores das ocorrências registradas: volume, tipo, região e horário
             {isFetching && !isLoading ? ' · atualizando…' : ''}
           </p>
         </div>
@@ -103,26 +106,45 @@ export function OperationalDashboard() {
         </div>
       )}
 
-      <IndicatorKpiCards kpis={data?.kpis} loading={isLoading} />
-
-      {isLoading || !data ? (
-        <ChartSkeletons />
-      ) : (
-        <>
-          <VolumeChart data={data.daily} />
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <TypeDistributionChart data={data.byType} />
-            <CompositionDonutChart data={data.composition} />
-          </div>
-
-          <div className="space-y-4">
-            <TopOffendersTable rows={data.topOffenders} />
-            <AgentProductivityTable rows={data.agentProductivity} />
-            <RecentIncidentsTable rows={data.recentIncidents} />
-          </div>
-        </>
+      {isAdmin && data?.isLegacyPayload && (
+        <div className="flex items-center gap-2 rounded-input border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-ink">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />
+          Banco desatualizado: execute sql/017_dashboard_stats_unified.sql para liberar os
+          indicadores por região, horário e meliantes envolvidos.
+        </div>
       )}
+
+      {/* Hold the previous numbers (dimmed) while a filter change refetches. */}
+      <div
+        className={cn(
+          'space-y-6 transition-opacity',
+          isPlaceholderData && 'opacity-60',
+        )}
+      >
+        <IndicatorKpiCards kpis={data?.kpis} loading={isLoading} />
+
+        {isLoading || !data ? (
+          <ChartSkeletons />
+        ) : (
+          <>
+            <VolumeChart data={data.volume} />
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <TypeDistributionChart data={data.byType} />
+              {data.geography && <GeographyChart data={data.geography} />}
+            </div>
+
+            {data.weekdayHour && <WeekdayHourHeatmap data={data.weekdayHour} />}
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <TopOffendersTable rows={data.topOffenders} />
+              <AgentProductivityTable rows={data.agentProductivity} />
+            </div>
+
+            <RecentIncidentsTable rows={data.recentIncidents} />
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -130,12 +152,12 @@ export function OperationalDashboard() {
 function ChartSkeletons() {
   return (
     <div className="space-y-4">
-      <Skeleton className="h-72 rounded-card" />
+      <Skeleton className="h-80 rounded-card" />
       <div className="grid gap-4 lg:grid-cols-2">
         <Skeleton className="h-72 rounded-card" />
         <Skeleton className="h-72 rounded-card" />
       </div>
-      <Skeleton className="h-56 rounded-card" />
+      <Skeleton className="h-72 rounded-card" />
     </div>
   )
 }
