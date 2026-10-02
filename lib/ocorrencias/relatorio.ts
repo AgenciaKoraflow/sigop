@@ -277,7 +277,7 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
         push('Olhos', clean(raw.eye_color))
         push('Cabelo', clean(raw.hair_color))
         push('Marcas', clean(raw.distinguishing_marks))
-        push('Descrição física', clean(raw.physical_description))
+        push('Informações gerais', clean(raw.physical_description))
 
         return {
           id,

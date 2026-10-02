@@ -192,11 +192,14 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
         <h2 className="text-lg font-semibold text-ink">Identificação</h2>
         <dl className="grid gap-x-6 gap-y-3 rounded-card border border-content-border bg-white p-4 sm:grid-cols-2">
           <Detail label="Nome completo" value={offender.full_name} />
-          <Detail label="Nome social" value={offender.social_name} />
           <Detail label="Apelido" value={offender.nickname} />
           <Detail label="CPF" value={offender.cpf} mono />
-          <Detail label="RG" value={offender.rg} mono />
           <Detail label="Data de nascimento" value={fmtDay(offender.birth_date)} />
+          <Detail
+            label="Informações gerais"
+            value={offender.physical_description}
+            className="whitespace-pre-wrap sm:col-span-2"
+          />
         </dl>
       </section>
 

@@ -319,7 +319,7 @@ export function CreateOffenderDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="offender-description">Descrição física</Label>
+            <Label htmlFor="offender-description">Informações gerais</Label>
             <Textarea
               id="offender-description"
               value={physicalDescription}

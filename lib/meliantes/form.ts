@@ -90,7 +90,6 @@ export const offenderFormSchema = z.object({
     .trim()
     .min(OFFENDER_NAME_MIN, `Informe o nome completo (mínimo ${OFFENDER_NAME_MIN} caracteres)`)
     .max(180, 'Máximo de 180 caracteres'),
-  social_name: optionalText,
   nickname: optionalText,
   cpf: z
     .string()
@@ -98,7 +97,6 @@ export const offenderFormSchema = z.object({
     .optional()
     .or(z.literal(''))
     .refine((value) => !value || CPF_REGEX.test(value), 'CPF no formato 999.999.999-99'),
-  rg: optionalText,
   /** `<input type="date">` string, e.g. `1990-05-21`. */
   birth_date: z
     .string()
@@ -111,6 +109,8 @@ export const offenderFormSchema = z.object({
       if (Number.isNaN(when)) return false
       return when <= Date.now()
     }, 'A data de nascimento não pode estar no futuro'),
+  /** Free text shown as "Informações gerais" (description, prior charges, etc.). */
+  physical_description: optionalText,
 })
 
 export type OffenderFormValues = z.infer<typeof offenderFormSchema>
@@ -120,11 +120,10 @@ export type OffenderFormValues = z.infer<typeof offenderFormSchema>
 // ---------------------------------------------------------------------------
 export const emptyOffenderForm = (): OffenderFormValues => ({
   full_name: '',
-  social_name: '',
   nickname: '',
   cpf: '',
-  rg: '',
   birth_date: '',
+  physical_description: '',
 })
 
 // ---------------------------------------------------------------------------
@@ -145,11 +144,10 @@ export function toOffenderPayload(
   const base: Record<string, unknown> = {
     id,
     full_name: nullIfEmpty(values.full_name),
-    social_name: nullIfEmpty(values.social_name),
     nickname: nullIfEmpty(values.nickname),
     cpf: nullIfEmpty(values.cpf),
-    rg: nullIfEmpty(values.rg),
     birth_date: nullIfEmpty(values.birth_date),
+    physical_description: nullIfEmpty(values.physical_description),
   }
 
   if (operation === 'create') {
@@ -169,11 +167,10 @@ export function fromOffenderPayload(payload: Record<string, unknown>): OffenderF
   return {
     ...emptyOffenderForm(),
     full_name: str('full_name'),
-    social_name: str('social_name'),
     nickname: str('nickname'),
     cpf: str('cpf'),
-    rg: str('rg'),
     birth_date: str('birth_date').slice(0, 10),
+    physical_description: str('physical_description'),
   }
 }
 

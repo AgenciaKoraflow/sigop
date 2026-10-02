@@ -27,6 +27,7 @@ import {
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button, Input, Label, Separator } from '@/components/ui'
+import { Textarea } from '@/components/ui/textarea'
 
 export interface FormMelianteProps {
   mode: 'create' | 'edit'
@@ -281,7 +282,6 @@ export function FormMeliante({
   const errors = formState.errors
   const previewName = offenderDisplayName({
     full_name: form.watch('full_name'),
-    social_name: form.watch('social_name'),
     nickname: form.watch('nickname'),
   })
   const mainPhotoSrc = mainPhotoPreview ?? mainPhotoRemoteUrl
@@ -312,15 +312,9 @@ export function FormMeliante({
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nome social" error={errors.social_name?.message}>
-            <Input {...register('social_name')} />
-          </Field>
           <Field label="Apelido" error={errors.nickname?.message}>
             <Input {...register('nickname')} />
           </Field>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="CPF" error={errors.cpf?.message}>
             <Controller
               control={control}
@@ -336,13 +330,18 @@ export function FormMeliante({
               )}
             />
           </Field>
-          <Field label="RG" error={errors.rg?.message}>
-            <Input placeholder="Registro geral" {...register('rg')} />
-          </Field>
         </div>
 
         <Field label="Data de nascimento" error={errors.birth_date?.message} className="sm:max-w-xs">
           <Input type="date" {...register('birth_date')} />
+        </Field>
+
+        <Field
+          label="Informações gerais"
+          error={errors.physical_description?.message}
+          hint="Descrição física, artigos em que já foi enquadrado e outras observações."
+        >
+          <Textarea rows={4} {...register('physical_description')} />
         </Field>
       </section>
 
