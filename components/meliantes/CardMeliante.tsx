@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { FileText, ShieldAlert } from 'lucide-react'
+import { FileText } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { initials } from '@/hooks/use-current-user'
@@ -25,8 +25,8 @@ export function CardMeliante({ offender, className }: CardMelianteProps) {
     nickname: offender.nickname,
   })
 
-  const lastStop = offender.lastStoppedAt
-    ? format(new Date(offender.lastStoppedAt), "dd/MM/yyyy", { locale: ptBR })
+  const lastIncident = offender.lastOccurredAt
+    ? format(new Date(offender.lastOccurredAt), "dd/MM/yyyy", { locale: ptBR })
     : null
 
   return (
@@ -58,18 +58,12 @@ export function CardMeliante({ offender, className }: CardMelianteProps) {
 
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-content-divider pt-3">
         <Badge variant="secondary" className="gap-1">
-          <ShieldAlert className="h-3 w-3" />
-          {offender.stopCount} {offender.stopCount === 1 ? 'abordagem' : 'abordagens'}
+          <FileText className="h-3 w-3" />
+          {offender.incidentCount} {offender.incidentCount === 1 ? 'ocorrência' : 'ocorrências'}
         </Badge>
-        {offender.incidentCount > 0 && (
-          <Badge variant="outline" className="gap-1">
-            <FileText className="h-3 w-3" />
-            {offender.incidentCount} {offender.incidentCount === 1 ? 'ocorrência' : 'ocorrências'}
-          </Badge>
+        {lastIncident && (
+          <span className="ml-auto text-[11px] text-ink-muted">Última: {lastIncident}</span>
         )}
-        <span className="ml-auto text-[11px] text-ink-muted">
-          {lastStop ? `Última abordagem: ${lastStop}` : 'Sem abordagens'}
-        </span>
       </div>
     </Link>
   )

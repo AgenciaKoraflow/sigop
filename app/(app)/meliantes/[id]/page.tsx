@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ArrowLeft, FileText, Loader2, MapPin, Pencil, ShieldAlert, Trash2 } from 'lucide-react'
+import { ArrowLeft, FileText, Loader2, MapPin, Pencil, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { initials } from '@/hooks/use-current-user'
@@ -140,7 +140,6 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
   const name = offenderDisplayName(offender)
   const mainPhoto = photos.find((photo) => (photo.sortOrder ?? 0) === 0) ?? photos[0]
   const mainPhotoUrl = mainPhoto?.url ?? offender.main_photo_url ?? null
-  const stopsCount = incidents.filter((incident) => incident.type === 'stop').length
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-12">
@@ -168,12 +167,8 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
           )}
           <div className="flex flex-wrap gap-2 pt-1">
             <Badge variant="secondary" className="gap-1">
-              <ShieldAlert className="h-3 w-3" />
-              {stopsCount} {stopsCount === 1 ? 'abordagem' : 'abordagens'}
-            </Badge>
-            <Badge variant="outline" className="gap-1">
               <FileText className="h-3 w-3" />
-              {incidents.length} {incidents.length === 1 ? 'registro' : 'registros'}
+              {incidents.length} {incidents.length === 1 ? 'ocorrência' : 'ocorrências'}
             </Badge>
           </div>
         </div>

@@ -26,9 +26,9 @@ export interface OffenderSearchResult {
   nickname: string | null
   cpf: string | null
   mainPhotoUrl: string | null
-  stopCount: number
+  /** Linked live incidents of any type ("abordagem" is just `type = 'stop'`). */
   incidentCount: number
-  lastStoppedAt: string | null
+  lastOccurredAt: string | null
 }
 
 /** Minimal offender identity emitted when one is picked in {@link BuscaMeliante}. */
@@ -44,9 +44,7 @@ interface SearchRow {
   nickname: string | null
   cpf: string | null
   main_photo_url: string | null
-  stop_count: number | string | null
   incident_count: number | string | null
-  last_stopped_at: string | null
 }
 
 function toSearchResult(row: SearchRow): OffenderSearchResult {
@@ -57,10 +55,62 @@ function toSearchResult(row: SearchRow): OffenderSearchResult {
     nickname: row.nickname,
     cpf: row.cpf,
     mainPhotoUrl: row.main_photo_url,
-    stopCount: Number(row.stop_count ?? 0),
     incidentCount: Number(row.incident_count ?? 0),
-    lastStoppedAt: row.last_stopped_at,
+    lastOccurredAt: null,
   }
+}
+
+/** Offender ids per `incident_offenders` lookup — keeps the `in.(…)` filter URL short. */
+const STATS_CHUNK_SIZE = 100
+
+interface IncidentStats {
+  count: number
+  lastOccurredAt: string | null
+}
+
+/**
+ * Count and latest date of the live incidents linked to each offender. The
+ * RPC's own `stop_count`/`last_stopped_at` columns date from when abordagens
+ * were a separate `stops` table, so they are ignored in favour of this.
+ */
+async function loadIncidentStats(
+  supabase: SupabaseClient,
+  offenderIds: string[],
+): Promise<Map<string, IncidentStats>> {
+  const stats = new Map<string, IncidentStats>()
+
+  const chunks: string[][] = []
+  for (let start = 0; start < offenderIds.length; start += STATS_CHUNK_SIZE) {
+    chunks.push(offenderIds.slice(start, start + STATS_CHUNK_SIZE))
+  }
+
+  const responses = await Promise.all(
+    chunks.map((chunk) =>
+      supabase
+        .from('incident_offenders')
+        .select('offender_id, incidents ( occurred_at, deleted_at )')
+        .in('offender_id', chunk),
+    ),
+  )
+
+  for (const { data, error } of responses) {
+    if (error) throw new Error(error.message)
+    for (const link of (data ?? []) as unknown as RawIncidentStatsLink[]) {
+      if (!link.incidents || link.incidents.deleted_at) continue
+      const current = stats.get(link.offender_id) ?? { count: 0, lastOccurredAt: null }
+      const occurredAt = link.incidents.occurred_at
+      const isLatest =
+        occurredAt !== null &&
+        (current.lastOccurredAt === null ||
+          new Date(occurredAt).getTime() > new Date(current.lastOccurredAt).getTime())
+      stats.set(link.offender_id, {
+        count: current.count + 1,
+        lastOccurredAt: isLatest ? occurredAt : current.lastOccurredAt,
+      })
+    }
+  }
+
+  return stats
 }
 
 /**
@@ -68,11 +118,29 @@ function toSearchResult(row: SearchRow): OffenderSearchResult {
  * term returns the most recently active offenders (drives the listing grid).
  */
 export async function searchOffenders(term: string): Promise<OffenderSearchResult[]> {
-  const { data, error } = await untyped().rpc('search_offenders_with_stats', {
+  const supabase = untyped()
+  const { data, error } = await supabase.rpc('search_offenders_with_stats', {
     term: term.trim(),
   })
   if (error) throw new Error(error.message)
-  return ((data ?? []) as SearchRow[]).map(toSearchResult)
+
+  const results = ((data ?? []) as SearchRow[]).map(toSearchResult)
+  if (results.length === 0) return results
+
+  try {
+    const stats = await loadIncidentStats(
+      supabase,
+      results.map((result) => result.id),
+    )
+    return results.map((result) => ({
+      ...result,
+      incidentCount: stats.get(result.id)?.count ?? 0,
+      lastOccurredAt: stats.get(result.id)?.lastOccurredAt ?? null,
+    }))
+  } catch {
+    // Stats are secondary to the listing itself — keep the RPC's own count.
+    return results
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -252,6 +320,14 @@ interface RawIncidentLink {
     address_street: string | null
     address_district: string | null
     address_city: string | null
+    deleted_at: string | null
+  } | null
+}
+
+interface RawIncidentStatsLink {
+  offender_id: string
+  incidents: {
+    occurred_at: string | null
     deleted_at: string | null
   } | null
 }
