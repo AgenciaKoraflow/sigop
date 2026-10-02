@@ -48,6 +48,7 @@ import {
   type MunicipalityOption,
   type TerritorialAreaOption,
 } from '@/lib/ocorrencias/data'
+import { loadOffenderPhotoUrls } from '@/lib/meliantes/data'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -252,15 +253,21 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
           )
           .eq('incident_id', incidentId)
 
+        const rawLinks = (links ?? []) as unknown as RawLink[]
+        const photoUrls = await loadOffenderPhotoUrls(
+          supabase,
+          rawLinks.map((link) => link.offenders?.id ?? ''),
+        )
+
         if (!cancelled && links) {
           setOffenders(
-            (links as unknown as RawLink[]).map((link) => ({
+            rawLinks.map((link) => ({
               linkId: link.id,
               offenderId: link.offenders?.id ?? '',
               role: (link.role as OffenderRole | null) ?? null,
               fullName: link.offenders?.full_name || link.offenders?.social_name || 'Sem nome',
               nickname: link.offenders?.nickname ?? null,
-              photoUrl: link.offenders?.main_photo_url ?? null,
+              photoUrl: photoUrls.get(link.offenders?.id ?? '') ?? null,
               isNew: false,
             })),
           )

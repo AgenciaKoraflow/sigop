@@ -54,7 +54,8 @@ function toSearchResult(row: SearchRow): OffenderSearchResult {
     socialName: row.social_name,
     nickname: row.nickname,
     cpf: row.cpf,
-    mainPhotoUrl: row.main_photo_url,
+    // Resolved afterwards by `loadOffenderPhotoUrls` (private bucket).
+    mainPhotoUrl: null,
     incidentCount: Number(row.incident_count ?? 0),
     lastOccurredAt: null,
   }
@@ -114,6 +115,58 @@ async function loadIncidentStats(
 }
 
 /**
+ * Signed URL of each offender's main photo (lowest `sort_order`), keyed by
+ * offender id. The bucket is private, so `offenders.main_photo_url` and the
+ * RPC's `main_photo_url` are not displayable — thumbnails must come from here.
+ * Never throws: offenders without a resolvable photo are simply absent.
+ */
+export async function loadOffenderPhotoUrls(
+  supabase: SupabaseClient,
+  offenderIds: string[],
+): Promise<Map<string, string>> {
+  const urls = new Map<string, string>()
+  const ids = Array.from(new Set(offenderIds.filter(Boolean)))
+  if (ids.length === 0) return urls
+
+  const chunks: string[][] = []
+  for (let start = 0; start < ids.length; start += STATS_CHUNK_SIZE) {
+    chunks.push(ids.slice(start, start + STATS_CHUNK_SIZE))
+  }
+
+  try {
+    const responses = await Promise.all(
+      chunks.map((chunk) =>
+        supabase
+          .from('photos')
+          .select('entity_id, storage_path, sort_order')
+          .eq('entity_type', 'offender')
+          .in('entity_id', chunk)
+          .order('sort_order', { ascending: true }),
+      ),
+    )
+
+    const pathByOffender = new Map<string, string>()
+    for (const { data } of responses) {
+      for (const row of (data ?? []) as unknown as RawOffenderPhotoRow[]) {
+        if (row.storage_path && !pathByOffender.has(row.entity_id)) {
+          pathByOffender.set(row.entity_id, row.storage_path)
+        }
+      }
+    }
+
+    const signed = await signPhotoUrls(supabase, Array.from(pathByOffender.values()))
+    pathByOffender.forEach((path, offenderId) => {
+      const url = signed.get(path)
+      if (url) urls.set(offenderId, url)
+    })
+  } catch {
+    // Offline / storage failure — callers fall back to the initials avatar.
+  }
+
+  return urls
+}
+
+/**
  * Search offenders by name, social name, nickname or CPF (digits). An empty
  * term returns the most recently active offenders (drives the listing grid).
  */
@@ -124,23 +177,22 @@ export async function searchOffenders(term: string): Promise<OffenderSearchResul
   })
   if (error) throw new Error(error.message)
 
-  const results = ((data ?? []) as SearchRow[]).map(toSearchResult)
-  if (results.length === 0) return results
+  const rows = ((data ?? []) as SearchRow[]).map(toSearchResult)
+  if (rows.length === 0) return rows
 
-  try {
-    const stats = await loadIncidentStats(
-      supabase,
-      results.map((result) => result.id),
-    )
-    return results.map((result) => ({
-      ...result,
-      incidentCount: stats.get(result.id)?.count ?? 0,
-      lastOccurredAt: stats.get(result.id)?.lastOccurredAt ?? null,
-    }))
-  } catch {
+  const offenderIds = rows.map((row) => row.id)
+  const [photoUrls, stats] = await Promise.all([
+    loadOffenderPhotoUrls(supabase, offenderIds),
     // Stats are secondary to the listing itself — keep the RPC's own count.
-    return results
-  }
+    loadIncidentStats(supabase, offenderIds).catch(() => null),
+  ])
+
+  return rows.map((row) => ({
+    ...row,
+    mainPhotoUrl: photoUrls.get(row.id) ?? null,
+    incidentCount: stats ? (stats.get(row.id)?.count ?? 0) : row.incidentCount,
+    lastOccurredAt: stats?.get(row.id)?.lastOccurredAt ?? null,
+  }))
 }
 
 // ---------------------------------------------------------------------------
@@ -330,6 +382,11 @@ interface RawIncidentStatsLink {
     occurred_at: string | null
     deleted_at: string | null
   } | null
+}
+
+interface RawOffenderPhotoRow {
+  entity_id: string
+  storage_path: string | null
 }
 
 interface RawPhotoRow {

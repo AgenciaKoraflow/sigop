@@ -36,6 +36,7 @@ import { INCIDENT_TYPE_LABELS, typeBadgeClass } from '@/lib/dashboard/labels'
 import { PhotoGallery, type RemotePhoto } from '@/components/fotos/PhotoGallery'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { signPhotoUrls } from '@/lib/fotos/urls'
+import { loadOffenderPhotoUrls } from '@/lib/meliantes/data'
 import { BuscaMeliante } from '@/components/meliantes/BuscaMeliante'
 import { FormOcorrencia } from '@/components/ocorrencias/FormOcorrencia'
 import { ExportarRelatorioButton } from '@/components/ocorrencias/relatorio/ExportarRelatorioButton'
@@ -299,8 +300,14 @@ async function loadIncidentDetail(
   ])
 
   // A null join means the offender was deleted (hidden by RLS) — skip the link.
-  const offenders: LinkedOffenderView[] = ((linkRes.data ?? []) as unknown as RawOffenderLink[])
-    .filter((link) => link.offenders)
+  const offenderLinks = ((linkRes.data ?? []) as unknown as RawOffenderLink[]).filter(
+    (link) => link.offenders,
+  )
+  const offenderPhotoUrls = await loadOffenderPhotoUrls(
+    supabase,
+    offenderLinks.map((link) => link.offenders?.id ?? link.offender_id),
+  )
+  const offenders: LinkedOffenderView[] = offenderLinks
     .map((link) => ({
       linkId: link.id,
       offenderId: link.offenders?.id ?? link.offender_id,
@@ -311,7 +318,7 @@ async function loadIncidentDetail(
         link.offenders?.nickname?.trim() ||
         'Sem nome',
       nickname: link.offenders?.nickname ?? null,
-      photoUrl: link.offenders?.main_photo_url ?? null,
+      photoUrl: offenderPhotoUrls.get(link.offenders?.id ?? link.offender_id) ?? null,
     }))
 
   const auditRows = (auditRes.data ?? []) as unknown as RawAuditRow[]
