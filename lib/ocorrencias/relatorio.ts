@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { endOfDay, parseISO, startOfDay } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
-import { compressImage } from '@/lib/fotos/compress'
+import { compressImage, type CompressionOptions } from '@/lib/fotos/compress'
 import { signPhotoUrls } from '@/lib/fotos/urls'
 import { offenderRoleLabel } from '@/lib/ocorrencias/form'
 import {
@@ -10,7 +11,7 @@ import {
 } from '@/lib/ocorrencias/data'
 
 /**
- * Data layer for the per-incident PDF report
+ * Data layer for the incident PDF reports — single incident and bulk export
  * (`components/ocorrencias/relatorio/RelatorioOcorrenciaPdf.tsx`).
  *
  * Sensitive-data rule: offenders are read through an explicit **allow-list** of
@@ -25,10 +26,27 @@ function untyped(): SupabaseClient {
   return createClient() as unknown as SupabaseClient
 }
 
-/** Longest edge, in pixels, of the photos embedded in the PDF. */
-const REPORT_PHOTO_MAX_EDGE = 1000
-const REPORT_PHOTO_QUALITY = 0.78
-const REPORT_PHOTO_MAX_MB = 0.6
+/** Photos embedded in the single-incident PDF (longest edge in pixels). */
+const REPORT_PHOTO_OPTIONS: CompressionOptions = {
+  maxWidth: 1000,
+  maxHeight: 1000,
+  quality: 0.78,
+  maxSizeMB: 0.6,
+}
+
+/** Bulk export embeds many incidents, so its photos are compressed harder. */
+const BULK_REPORT_PHOTO_OPTIONS: CompressionOptions = {
+  maxWidth: 800,
+  maxHeight: 800,
+  quality: 0.7,
+  maxSizeMB: 0.3,
+}
+
+/** Hard cap of incidents per bulk PDF — everything is rendered in the browser. */
+export const BULK_REPORT_MAX_INCIDENTS = 200
+
+/** Incidents prepared in parallel (photo download + compression) in a bulk export. */
+const BULK_REPORT_CONCURRENCY = 3
 
 /** The only offender columns allowed into the report. */
 const OFFENDER_REPORT_COLUMNS =
@@ -73,10 +91,47 @@ export interface IncidentReport {
   logoSrc: string | null
 }
 
+export interface BulkReportFilters {
+  /** First day of the period, `yyyy-MM-dd` (local time). */
+  from: string
+  /** Last day of the period, `yyyy-MM-dd` (local time, inclusive). */
+  to: string
+  /** `incidents.type`; omit for every type. */
+  type?: string
+}
+
+export interface BulkIncidentReport {
+  from: string
+  to: string
+  /** `null` means "all types". */
+  type: string | null
+  /** Ordered by `occurredAt`, oldest first. */
+  reports: IncidentReport[]
+  generatedAt: string
+  generatedBy: string | null
+  logoSrc: string | null
+}
+
 export class ReportForbiddenError extends Error {
   constructor() {
     super('Apenas administradores podem exportar o relatório.')
     this.name = 'ReportForbiddenError'
+  }
+}
+
+export class ReportEmptyError extends Error {
+  constructor() {
+    super('Nenhuma ocorrência encontrada para o período e tipo selecionados.')
+    this.name = 'ReportEmptyError'
+  }
+}
+
+export class ReportTooLargeError extends Error {
+  constructor(total: number) {
+    super(
+      `Foram encontradas ${total} ocorrências; o limite por exportação é ${BULK_REPORT_MAX_INCIDENTS}. Reduza o período ou filtre por tipo.`,
+    )
+    this.name = 'ReportTooLargeError'
   }
 }
 
@@ -97,17 +152,12 @@ function blobToDataUri(blob: Blob): Promise<string> {
 }
 
 /** Download a (signed) image URL, downscale it and return a `data:` URI. */
-async function imageToDataUri(url: string): Promise<string | null> {
+async function imageToDataUri(url: string, options: CompressionOptions): Promise<string | null> {
   try {
     const response = await fetch(url)
     if (!response.ok) return null
     const original = await response.blob()
-    const compressed = await compressImage(original, {
-      maxWidth: REPORT_PHOTO_MAX_EDGE,
-      maxHeight: REPORT_PHOTO_MAX_EDGE,
-      quality: REPORT_PHOTO_QUALITY,
-      maxSizeMB: REPORT_PHOTO_MAX_MB,
-    })
+    const compressed = await compressImage(original, options)
     return await blobToDataUri(compressed)
   } catch {
     return null
@@ -148,10 +198,11 @@ interface RawLink {
 // ---------------------------------------------------------------------------
 // Loader
 // ---------------------------------------------------------------------------
-export async function loadIncidentReport(incidentId: string): Promise<IncidentReport> {
-  const supabase = untyped()
-
-  // Defence in depth: the button is admin-only, but the generator re-checks.
+/**
+ * Defence in depth: the buttons are admin-only, but the generators re-check.
+ * Returns the requester's display name.
+ */
+async function requireAdmin(supabase: SupabaseClient): Promise<string | null> {
   const { data: authData } = await supabase.auth.getUser()
   const authUserId = authData.user?.id
   if (!authUserId) throw new ReportForbiddenError()
@@ -161,8 +212,68 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
     .select('full_name, role')
     .eq('id', authUserId)
     .maybeSingle()
-  const requester = me as { full_name: string | null; role: string | null } | null
+  const requester = me as {
+    full_name: string | null
+    role: string | null
+  } | null
   if (requester?.role !== 'administrator') throw new ReportForbiddenError()
+  return requester.full_name
+}
+
+/** Cache a by-id lookup so a bulk export resolves each name only once. */
+function memoize<T>(fn: (id: string) => Promise<T>): (id: string) => Promise<T> {
+  const cache = new Map<string, Promise<T>>()
+  return (id) => {
+    let hit = cache.get(id)
+    if (!hit) {
+      hit = fn(id)
+      cache.set(id, hit)
+    }
+    return hit
+  }
+}
+
+/** Everything shared by the incidents of one export. */
+interface ReportContext {
+  supabase: SupabaseClient
+  generatedAt: string
+  generatedBy: string | null
+  logoSrc: string | null
+  photoOptions: CompressionOptions
+  municipalityName: (id: string) => Promise<string | null>
+  territorialAreaName: (id: string) => Promise<string | null>
+  contractorName: (territorialAreaId: string) => Promise<string | null>
+  agentName: (profileId: string) => Promise<string | null>
+}
+
+async function createReportContext(
+  supabase: SupabaseClient,
+  photoOptions: CompressionOptions,
+): Promise<ReportContext> {
+  const [generatedBy, logoSrc] = await Promise.all([requireAdmin(supabase), loadOptionalLogo()])
+  return {
+    supabase,
+    generatedAt: new Date().toISOString(),
+    generatedBy,
+    logoSrc,
+    photoOptions,
+    municipalityName: memoize((id) => getMunicipalityName(id).catch(() => null)),
+    territorialAreaName: memoize((id) => getTerritorialAreaName(id).catch(() => null)),
+    contractorName: memoize((id) => getContractorNameForTerritorialArea(id).catch(() => null)),
+    agentName: memoize(async (id) => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', id)
+        .maybeSingle()
+      return (data as { full_name: string | null } | null)?.full_name ?? null
+    }),
+  }
+}
+
+export async function loadIncidentReport(incidentId: string): Promise<IncidentReport> {
+  const supabase = untyped()
+  const context = await createReportContext(supabase, REPORT_PHOTO_OPTIONS)
 
   const { data: incidentRow, error } = await supabase
     .from('incidents')
@@ -174,15 +285,79 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
   const incident = incidentRow as Record<string, unknown> | null
   if (!incident) throw new Error('Ocorrência não encontrada.')
 
+  return buildIncidentReport(incident, context)
+}
+
+/**
+ * Every incident in a period (optionally of a single type), ready for
+ * `RelatorioOcorrenciasLotePdf`. `onProgress` fires as each incident finishes.
+ */
+export async function loadBulkIncidentReport(
+  filters: BulkReportFilters,
+  onProgress?: (done: number, total: number) => void,
+): Promise<BulkIncidentReport> {
+  const supabase = untyped()
+  const context = await createReportContext(supabase, BULK_REPORT_PHOTO_OPTIONS)
+
+  let query = supabase
+    .from('incidents')
+    .select('*', { count: 'exact' })
+    .is('deleted_at', null)
+    .gte('occurred_at', startOfDay(parseISO(filters.from)).toISOString())
+    .lte('occurred_at', endOfDay(parseISO(filters.to)).toISOString())
+  if (filters.type) query = query.eq('type', filters.type)
+
+  const { data, count, error } = await query
+    .order('occurred_at', { ascending: true })
+    .range(0, BULK_REPORT_MAX_INCIDENTS - 1)
+  if (error) throw new Error(error.message)
+
+  const incidents = (data ?? []) as Record<string, unknown>[]
+  const total = count ?? incidents.length
+  if (incidents.length === 0) throw new ReportEmptyError()
+  if (total > BULK_REPORT_MAX_INCIDENTS) throw new ReportTooLargeError(total)
+
+  // Small worker pool: bounded memory/network while photos are compressed.
+  const reports = new Array<IncidentReport>(incidents.length)
+  let next = 0
+  let done = 0
+  onProgress?.(0, incidents.length)
+  const worker = async () => {
+    while (next < incidents.length) {
+      const index = next++
+      reports[index] = await buildIncidentReport(incidents[index], context)
+      onProgress?.(++done, incidents.length)
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(BULK_REPORT_CONCURRENCY, incidents.length) }, worker),
+  )
+
+  return {
+    from: filters.from,
+    to: filters.to,
+    type: filters.type ?? null,
+    reports,
+    generatedAt: context.generatedAt,
+    generatedBy: context.generatedBy,
+    logoSrc: context.logoSrc,
+  }
+}
+
+async function buildIncidentReport(
+  incident: Record<string, unknown>,
+  context: ReportContext,
+): Promise<IncidentReport> {
+  const { supabase, photoOptions } = context
+  const incidentId = String(incident.id)
+
   const municipalityId = clean(incident.municipality_id)
   const territorialAreaId = clean(incident.territorial_area_id)
   const createdBy = clean(incident.created_by)
 
-  const [agentRes, linkRes, photoRes, municipality, territorialArea, contractor, logoSrc] =
+  const [agentName, linkRes, photoRes, municipality, territorialArea, contractor] =
     await Promise.all([
-      createdBy
-        ? supabase.from('profiles').select('full_name').eq('id', createdBy).maybeSingle()
-        : Promise.resolve({ data: null }),
+      createdBy ? context.agentName(createdBy) : null,
       supabase
         .from('incident_offenders')
         .select(`id, role, offenders ( ${OFFENDER_REPORT_COLUMNS} )`)
@@ -193,15 +368,10 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
         .eq('entity_type', 'incident')
         .eq('entity_id', incidentId)
         .order('sort_order', { ascending: true }),
-      municipalityId ? getMunicipalityName(municipalityId).catch(() => null) : null,
-      territorialAreaId ? getTerritorialAreaName(territorialAreaId).catch(() => null) : null,
-      territorialAreaId
-        ? getContractorNameForTerritorialArea(territorialAreaId).catch(() => null)
-        : null,
-      loadOptionalLogo(),
+      municipalityId ? context.municipalityName(municipalityId) : null,
+      territorialAreaId ? context.territorialAreaName(territorialAreaId) : null,
+      territorialAreaId ? context.contractorName(territorialAreaId) : null,
     ])
-
-  const agent = agentRes.data as { full_name: string | null } | null
 
   // Offenders -----------------------------------------------------------------
   const links = ((linkRes.data ?? []) as unknown as RawLink[]).filter(
@@ -251,7 +421,7 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
     Promise.all(
       incidentPhotoRows.map(async (photo): Promise<ReportPhoto | null> => {
         const url = photo.storage_path ? signed.get(photo.storage_path) : null
-        const src = url ? await imageToDataUri(url) : null
+        const src = url ? await imageToDataUri(url, photoOptions) : null
         return src ? { id: photo.id, src, description: clean(photo.description) } : null
       }),
     ),
@@ -284,7 +454,7 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
           name: clean(raw.full_name) ?? clean(raw.nickname) ?? 'Sem nome',
           nickname: clean(raw.full_name) ? clean(raw.nickname) : null,
           roleLabel: offenderRoleLabel(link.role),
-          photoSrc: url ? await imageToDataUri(url) : null,
+          photoSrc: url ? await imageToDataUri(url, photoOptions) : null,
           traits,
         }
       }),
@@ -313,11 +483,11 @@ export async function loadIncidentReport(incidentId: string): Promise<IncidentRe
     municipality,
     territorialArea,
     contractor,
-    agentName: agent?.full_name ?? null,
+    agentName,
     photos: photos.filter((photo): photo is ReportPhoto => photo !== null),
     offenders,
-    generatedAt: new Date().toISOString(),
-    generatedBy: requester?.full_name ?? null,
-    logoSrc,
+    generatedAt: context.generatedAt,
+    generatedBy: context.generatedBy,
+    logoSrc: context.logoSrc,
   }
 }

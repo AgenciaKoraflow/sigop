@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ExportarOcorrenciasLoteButton } from '@/components/ocorrencias/relatorio/ExportarOcorrenciasLoteButton'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useRecords } from '@/hooks/use-records'
 import { PAGE_SIZE, RECORD_CONFIG, type RecordFilters, type SortColumn } from '@/lib/records/config'
@@ -81,19 +82,22 @@ export function RecordsListView() {
           {RECORD_CONFIG.title}{' '}
           <span className="font-semibold text-ink-muted">({total})</span>
         </h1>
-        {permissions.canCreateIncident && (
-          <Button
-            asChild
-            variant="primary"
-            size="lg"
-            className="w-full justify-center sm:w-auto"
-          >
-            <Link href={RECORD_CONFIG.newHref}>
-              <Plus />
-              {RECORD_CONFIG.newLabel}
-            </Link>
-          </Button>
-        )}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <ExportarOcorrenciasLoteButton className="w-full justify-center sm:w-auto" />
+          {permissions.canCreateIncident && (
+            <Button
+              asChild
+              variant="primary"
+              size="lg"
+              className="w-full justify-center sm:w-auto"
+            >
+              <Link href={RECORD_CONFIG.newHref}>
+                <Plus />
+                {RECORD_CONFIG.newLabel}
+              </Link>
+            </Button>
+          )}
+        </div>
       </header>
 
       <RecordFiltersBar
