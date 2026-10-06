@@ -1,5 +1,6 @@
+import { Suspense } from 'react'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
-import { UsuariosListView } from '@/components/usuarios/UsuariosListView'
+import { UsuariosTabs } from '@/components/usuarios/UsuariosTabs'
 
 export const metadata = {
   title: 'Usuários · SIGOP',
@@ -8,7 +9,9 @@ export const metadata = {
 export default function UsuariosPage() {
   return (
     <ProtectedRoute roles={['administrator']}>
-      <UsuariosListView />
+      <Suspense fallback={null}>
+        <UsuariosTabs />
+      </Suspense>
     </ProtectedRoute>
   )
 }

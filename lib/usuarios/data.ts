@@ -220,12 +220,62 @@ export interface UserStats {
   newLast30Days: number
   passwordChanges: number
   passwordChangesLast30Days: number
+  /** Logins recorded in `login_events` inside the selected period. */
+  loginsInPeriod: number
 }
 
-export function getUserStats(): Promise<UserStats> {
+export type DashboardPeriod = 7 | 30 | 90
+
+export interface DistributionRow {
+  label: string
+  total: number
+  active: number
+}
+
+export interface UserDashboard {
+  days: DashboardPeriod
+  kpis: UserStats
+  /** `available: false` until sql/018 is applied; `since` = first recorded login. */
+  loginTracking: { available: boolean; since: string | null }
+  loginsPerDay: { day: string; logins: number; users: number }[]
+  topAccessed: {
+    id: string
+    fullName: string
+    role: string
+    unitName: string | null
+    logins: number
+    lastLoginAt: string
+  }[]
+  neverLoggedIn: {
+    id: string
+    fullName: string
+    email: string | null
+    role: string
+    unitName: string | null
+    isActive: boolean
+    createdAt: string | null
+    daysSinceCreated: number | null
+  }[]
+  dormant: {
+    id: string
+    fullName: string
+    role: string
+    unitName: string | null
+    lastLoginAt: string
+    daysSince: number
+  }[]
+  byRole: DistributionRow[]
+  byUnit: DistributionRow[]
+  passwordChangesPerWeek: { weekStart: string; count: number }[]
+}
+
+export function getUserDashboard(days: DashboardPeriod): Promise<UserDashboard> {
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
-  return callApi(`/api/usuarios/stats?todayStart=${encodeURIComponent(todayStart.toISOString())}`, {
-    method: 'GET',
+  const query = new URLSearchParams({
+    todayStart: todayStart.toISOString(),
+    tz: String(todayStart.getTimezoneOffset()),
+    days: String(days),
   })
+  return callApi(`/api/usuarios/stats?${query}`, { method: 'GET' })
 }

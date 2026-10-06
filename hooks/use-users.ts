@@ -2,10 +2,11 @@
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
-  getUserStats,
+  getUserDashboard,
   listUsers,
+  type DashboardPeriod,
+  type UserDashboard,
   type UserFilters,
-  type UserStats,
   type UsersPage,
 } from '@/lib/usuarios/data'
 
@@ -23,11 +24,12 @@ export function useUsers(filters: UserFilters) {
   })
 }
 
-/** Counters for the dashboard at the top of `/usuarios`. */
-export function useUserStats() {
-  return useQuery<UserStats>({
-    queryKey: ['users', 'stats'],
-    queryFn: getUserStats,
+/** Everything the "Dashboard" tab of `/usuarios` shows, for one period. */
+export function useUserDashboard(days: DashboardPeriod) {
+  return useQuery<UserDashboard>({
+    queryKey: ['users', 'dashboard', days],
+    queryFn: () => getUserDashboard(days),
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
   })
 }

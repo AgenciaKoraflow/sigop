@@ -59,6 +59,11 @@ export default function LoginPage() {
       return
     }
 
+    // Feeds the /usuarios dashboard; never blocks or fails the login.
+    await fetch('/api/auth/login-event', { method: 'POST', credentials: 'same-origin' }).catch(
+      () => undefined,
+    )
+
     router.push('/')
     router.refresh()
   }

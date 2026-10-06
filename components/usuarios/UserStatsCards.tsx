@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
-import { useUserStats } from '@/hooks/use-users'
 import type { UserStats } from '@/lib/usuarios/data'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -90,9 +89,15 @@ const CARDS: CardDef[] = [
   },
 ]
 
-export function UserStatsCards() {
-  const { data, isLoading, isError } = useUserStats()
-
+export function UserStatsCards({
+  data,
+  isLoading,
+  isError,
+}: {
+  data?: UserStats
+  isLoading?: boolean
+  isError?: boolean
+}) {
   return (
     <section aria-label="Indicadores de usuários" className="space-y-2">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">

@@ -20,7 +20,6 @@ import {
 import { USER_ROLE_OPTIONS, roleOptionLabel } from '@/lib/usuarios/form'
 import type { UserRole } from '@/types/app.types'
 import { TrocarSenhaDialog } from '@/components/usuarios/TrocarSenhaDialog'
-import { UserStatsCards } from '@/components/usuarios/UserStatsCards'
 import {
   Badge,
   Button,
@@ -141,8 +140,6 @@ export function UsuariosListView() {
           </Link>
         </Button>
       </header>
-
-      <UserStatsCards />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">

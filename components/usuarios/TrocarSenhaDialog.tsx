@@ -53,7 +53,7 @@ export function TrocarSenhaDialog({ user, onClose }: Props) {
     try {
       const result = await resetUserPassword(user.id, password)
       setSaved(result.password)
-      void queryClient.invalidateQueries({ queryKey: ['users', 'stats'] })
+      void queryClient.invalidateQueries({ queryKey: ['users', 'dashboard'] })
     } catch (error) {
       toast({
         title: 'Não foi possível trocar a senha',
