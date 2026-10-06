@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, Copy, KeyRound, Loader2, Pencil, Power, Trash2 } from 'lucide-react'
+import { ArrowLeft, KeyRound, Loader2, Pencil, Power, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { useToast } from '@/hooks/use-toast'
@@ -14,12 +14,12 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import {
   deleteUser,
   getUserDetail,
-  resetUserPassword,
   updateUser,
   type UserListItem,
 } from '@/lib/usuarios/data'
 import { roleOptionLabel } from '@/lib/usuarios/form'
 import { FormUsuario } from '@/components/usuarios/FormUsuario'
+import { TrocarSenhaDialog } from '@/components/usuarios/TrocarSenhaDialog'
 import {
   Badge,
   Button,
@@ -41,7 +41,13 @@ function fmtDay(iso: string | null): string {
   }
 }
 
-export function DetalheUsuario({ id }: { id: string }) {
+export function DetalheUsuario({
+  id,
+  startEditing = false,
+}: {
+  id: string
+  startEditing?: boolean
+}) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { toast } = useToast()
@@ -50,12 +56,12 @@ export function DetalheUsuario({ id }: { id: string }) {
   const [detail, setDetail] = React.useState<UserListItem | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [notFound, setNotFound] = React.useState(false)
-  const [editing, setEditing] = React.useState(false)
+  const [editing, setEditing] = React.useState(startEditing)
 
   const [busy, setBusy] = React.useState(false)
   const [confirmToggle, setConfirmToggle] = React.useState(false)
   const [confirmDelete, setConfirmDelete] = React.useState(false)
-  const [newPassword, setNewPassword] = React.useState<string | null>(null)
+  const [changingPassword, setChangingPassword] = React.useState(false)
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -85,8 +91,9 @@ export function DetalheUsuario({ id }: { id: string }) {
     setBusy(true)
     try {
       await updateUser(id, { is_active: !detail.isActive })
-      toast({ title: detail.isActive ? 'Usuário desativado' : 'Usuário reativado' })
+      toast({ title: detail.isActive ? 'Usuário inativado' : 'Usuário ativado' })
       setConfirmToggle(false)
+      void queryClient.invalidateQueries({ queryKey: ['users'] })
       await load()
     } catch (error) {
       toast({
@@ -112,22 +119,6 @@ export function DetalheUsuario({ id }: { id: string }) {
         description: error instanceof Error ? error.message : 'Tente novamente.',
         variant: 'destructive',
       })
-      setBusy(false)
-    }
-  }
-
-  async function handleResetPassword() {
-    setBusy(true)
-    try {
-      const { password } = await resetUserPassword(id)
-      setNewPassword(password)
-    } catch (error) {
-      toast({
-        title: 'Não foi possível resetar a senha',
-        description: error instanceof Error ? error.message : 'Tente novamente.',
-        variant: 'destructive',
-      })
-    } finally {
       setBusy(false)
     }
   }
@@ -159,6 +150,7 @@ export function DetalheUsuario({ id }: { id: string }) {
         initialValues={detail}
         onSaved={() => {
           setEditing(false)
+          void queryClient.invalidateQueries({ queryKey: ['users'] })
           void load()
         }}
         onCancel={() => setEditing(false)}
@@ -209,13 +201,13 @@ export function DetalheUsuario({ id }: { id: string }) {
         <h2 className="text-lg font-semibold text-ink">Ações</h2>
         {isSelf && (
           <p className="rounded-input border border-sync-pending-text/20 bg-sync-pending-bg px-3 py-2 text-xs font-medium text-sync-pending-text">
-            Você não pode desativar ou excluir a própria conta nem alterar o próprio papel.
+            Você não pode inativar ou excluir a própria conta nem alterar o próprio papel.
           </p>
         )}
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleResetPassword} disabled={busy}>
+          <Button variant="outline" onClick={() => setChangingPassword(true)} disabled={busy}>
             <KeyRound className="h-4 w-4" />
-            Resetar senha
+            Trocar senha
           </Button>
           <Button
             variant={detail.isActive ? 'destructive' : 'outline'}
@@ -223,7 +215,7 @@ export function DetalheUsuario({ id }: { id: string }) {
             disabled={busy || isSelf}
           >
             <Power className="h-4 w-4" />
-            {detail.isActive ? 'Desativar acesso' : 'Reativar acesso'}
+            {detail.isActive ? 'Inativar' : 'Ativar'}
           </Button>
           <Button
             variant="destructive"
@@ -263,11 +255,11 @@ export function DetalheUsuario({ id }: { id: string }) {
         <DialogContent className="max-w-md" aria-describedby="toggle-user">
           <DialogHeader>
             <DialogTitle>
-              {detail.isActive ? 'Desativar este usuário?' : 'Reativar este usuário?'}
+              {detail.isActive ? 'Inativar este usuário?' : 'Ativar este usuário?'}
             </DialogTitle>
             <DialogDescription id="toggle-user">
               {detail.isActive
-                ? 'O login será bloqueado imediatamente até você reativar a conta.'
+                ? 'O login será bloqueado imediatamente até você ativar a conta de novo.'
                 : 'O usuário volta a poder entrar com a senha atual.'}
             </DialogDescription>
           </DialogHeader>
@@ -281,29 +273,16 @@ export function DetalheUsuario({ id }: { id: string }) {
               disabled={busy}
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              {detail.isActive ? 'Desativar' : 'Reativar'}
+              {detail.isActive ? 'Inativar' : 'Ativar'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* New password reveal */}
-      <Dialog open={newPassword !== null} onOpenChange={() => setNewPassword(null)}>
-        <DialogContent className="max-w-md" aria-describedby="new-password">
-          <DialogHeader>
-            <DialogTitle>Nova senha provisória</DialogTitle>
-            <DialogDescription id="new-password">
-              Repasse ao usuário — ela não será exibida novamente. A senha anterior deixou de valer.
-            </DialogDescription>
-          </DialogHeader>
-          {newPassword && <CopyRow label="Senha" value={newPassword} mono />}
-          <DialogFooter>
-            <Button variant="primary" onClick={() => setNewPassword(null)}>
-              Fechar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TrocarSenhaDialog
+        user={changingPassword ? { id, fullName: detail.fullName } : null}
+        onClose={() => setChangingPassword(false)}
+      />
     </div>
   )
 }
@@ -325,37 +304,6 @@ function Detail({
       >
         {value || '—'}
       </dd>
-    </div>
-  )
-}
-
-function CopyRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  const [copied, setCopied] = React.useState(false)
-  return (
-    <div className="space-y-1">
-      <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">{label}</p>
-      <div className="flex items-center gap-2">
-        <code
-          className={cn(
-            'flex-1 rounded-input border border-content-border bg-content-bg px-3 py-2 text-sm',
-            mono && 'font-mono',
-          )}
-        >
-          {value}
-        </code>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            void navigator.clipboard?.writeText(value)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 1500)
-          }}
-        >
-          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-        </Button>
-      </div>
     </div>
   )
 }

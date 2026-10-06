@@ -15,6 +15,9 @@ import type { UserRole } from '@/types/app.types'
 export const USER_NAME_MIN = 3
 export const USER_PASSWORD_MIN = 8
 
+/** `audit_log.entity_type` used to record password changes. */
+export const PASSWORD_AUDIT_ENTITY = 'user_password'
+
 export const USER_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'agent', label: 'Agente' },
   { value: 'supervisor', label: 'Supervisor' },
@@ -73,7 +76,16 @@ export const userEditSchema = z.object({
   is_active: z.boolean(),
 })
 
-export type UserCreateValues = z.infer<typeof userCreateSchema>
+/** Admin-driven password change — omitted password means "generate one". */
+export const passwordChangeSchema = z.object({
+  password: z
+    .string()
+    .min(USER_PASSWORD_MIN, `A senha precisa de ao menos ${USER_PASSWORD_MIN} caracteres`)
+    .max(72, 'Máximo de 72 caracteres')
+    .optional(),
+})
+
+export type UserCreateValues =z.infer<typeof userCreateSchema>
 export type UserEditValues = z.infer<typeof userEditSchema>
 
 // ---------------------------------------------------------------------------

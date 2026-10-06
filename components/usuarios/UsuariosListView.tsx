@@ -3,16 +3,38 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Search } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { KeyRound, Loader2, MoreHorizontal, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { useToast } from '@/hooks/use-toast'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { useUsers } from '@/hooks/use-users'
-import { USERS_PAGE_SIZE, type UserFilters } from '@/lib/usuarios/data'
+import {
+  USERS_PAGE_SIZE,
+  deleteUser,
+  updateUser,
+  type UserFilters,
+  type UserListItem,
+} from '@/lib/usuarios/data'
 import { USER_ROLE_OPTIONS, roleOptionLabel } from '@/lib/usuarios/form'
 import type { UserRole } from '@/types/app.types'
+import { TrocarSenhaDialog } from '@/components/usuarios/TrocarSenhaDialog'
+import { UserStatsCards } from '@/components/usuarios/UserStatsCards'
 import {
   Badge,
   Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Input,
   Select,
   SelectContent,
@@ -60,6 +82,52 @@ export function UsuariosListView() {
   const patch = (next: Partial<UserFilters>) =>
     setFilters((current) => ({ ...current, ...next, page: next.page ?? 1 }))
 
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const { user: currentUser } = useCurrentUser()
+  const [busy, setBusy] = useState(false)
+  const [passwordTarget, setPasswordTarget] = useState<UserListItem | null>(null)
+  const [toggleTarget, setToggleTarget] = useState<UserListItem | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null)
+
+  async function handleToggleActive() {
+    if (!toggleTarget) return
+    setBusy(true)
+    try {
+      await updateUser(toggleTarget.id, { is_active: !toggleTarget.isActive })
+      toast({ title: toggleTarget.isActive ? 'Usuário inativado' : 'Usuário ativado' })
+      setToggleTarget(null)
+      void queryClient.invalidateQueries({ queryKey: ['users'] })
+    } catch (error) {
+      toast({
+        title: 'Não foi possível alterar o acesso',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setBusy(true)
+    try {
+      await deleteUser(deleteTarget.id)
+      toast({ title: 'Usuário excluído' })
+      setDeleteTarget(null)
+      void queryClient.invalidateQueries({ queryKey: ['users'] })
+    } catch (error) {
+      toast({
+        title: 'Não foi possível excluir o usuário',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -73,6 +141,8 @@ export function UsuariosListView() {
           </Link>
         </Button>
       </header>
+
+      <UserStatsCards />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -137,13 +207,16 @@ export function UsuariosListView() {
               <TableHead className="text-xs">Unidade</TableHead>
               <TableHead className="text-xs">Matrícula</TableHead>
               <TableHead className="text-xs">Status</TableHead>
+              <TableHead className="w-12 text-xs">
+                <span className="sr-only">Ações</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               Array.from({ length: 8 }).map((_, index) => (
                 <TableRow key={index} className="hover:bg-transparent">
-                  {Array.from({ length: 6 }).map((__, cell) => (
+                  {Array.from({ length: 7 }).map((__, cell) => (
                     <TableCell key={cell}>
                       <Skeleton className="h-4 w-full max-w-[140px]" />
                     </TableCell>
@@ -152,7 +225,7 @@ export function UsuariosListView() {
               ))
             ) : items.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-16 text-center text-sm text-ink-secondary">
+                <TableCell colSpan={7} className="py-16 text-center text-sm text-ink-secondary">
                   Nenhum usuário encontrado.
                 </TableCell>
               </TableRow>
@@ -187,6 +260,48 @@ export function UsuariosListView() {
                       {user.isActive ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Ações para ${user.fullName}`}
+                        >
+                          <MoreHorizontal />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => router.push(`/usuarios/${user.id}?editar=1`)}
+                        >
+                          <Pencil />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setPasswordTarget(user)}>
+                          <KeyRound />
+                          Trocar senha
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={user.id === currentUser?.id}
+                          onSelect={() => setToggleTarget(user)}
+                        >
+                          <Power />
+                          {user.isActive ? 'Inativar' : 'Ativar'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          disabled={user.id === currentUser?.id}
+                          onSelect={() => setDeleteTarget(user)}
+                          className="text-danger focus:text-danger"
+                        >
+                          <Trash2 />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -220,6 +335,65 @@ export function UsuariosListView() {
           </div>
         </div>
       )}
+
+      <TrocarSenhaDialog user={passwordTarget} onClose={() => setPasswordTarget(null)} />
+
+      {/* Toggle confirmation */}
+      <Dialog
+        open={toggleTarget !== null}
+        onOpenChange={(open) => !open && !busy && setToggleTarget(null)}
+      >
+        <DialogContent className="max-w-md" aria-describedby="toggle-user">
+          <DialogHeader>
+            <DialogTitle>
+              {toggleTarget?.isActive ? 'Inativar este usuário?' : 'Ativar este usuário?'}
+            </DialogTitle>
+            <DialogDescription id="toggle-user">
+              {toggleTarget?.isActive
+                ? `O login de ${toggleTarget.fullName} será bloqueado imediatamente até você ativar a conta de novo.`
+                : `${toggleTarget?.fullName ?? 'O usuário'} volta a poder entrar com a senha atual.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setToggleTarget(null)} disabled={busy}>
+              Cancelar
+            </Button>
+            <Button
+              variant={toggleTarget?.isActive ? 'destructive' : 'primary'}
+              onClick={handleToggleActive}
+              disabled={busy}
+            >
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              {toggleTarget?.isActive ? 'Inativar' : 'Ativar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && !busy && setDeleteTarget(null)}
+      >
+        <DialogContent className="max-w-md" aria-describedby="delete-user">
+          <DialogHeader>
+            <DialogTitle>Excluir este usuário?</DialogTitle>
+            <DialogDescription id="delete-user">
+              O login de {deleteTarget?.fullName} será removido em definitivo e não poderá ser
+              recuperado. Os registros criados por ele continuam no sistema.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={busy}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={busy}>
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

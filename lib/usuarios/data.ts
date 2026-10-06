@@ -202,6 +202,30 @@ export function deleteUser(id: string): Promise<{ id: string }> {
   return callApi(`/api/usuarios/${id}`, { method: 'DELETE' })
 }
 
-export function resetUserPassword(id: string): Promise<{ password: string }> {
-  return callApi(`/api/usuarios/${id}/reset-password`, { method: 'POST' })
+/** Sets `password` as the new one; without it the server generates one. */
+export function resetUserPassword(id: string, password?: string): Promise<{ password: string }> {
+  return callApi(`/api/usuarios/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify(password ? { password } : {}),
+  })
+}
+
+export interface UserStats {
+  total: number
+  active: number
+  inactive: number
+  neverLoggedIn: number
+  loggedInToday: number
+  loggedInLast7Days: number
+  newLast30Days: number
+  passwordChanges: number
+  passwordChangesLast30Days: number
+}
+
+export function getUserStats(): Promise<UserStats> {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  return callApi(`/api/usuarios/stats?todayStart=${encodeURIComponent(todayStart.toISOString())}`, {
+    method: 'GET',
+  })
 }
