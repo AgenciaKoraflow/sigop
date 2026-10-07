@@ -6,7 +6,7 @@ export const INCIDENT_TYPE_LABELS: Record<string, string> = {
   vandalism: 'Vandalismo',
   in_flagrante: 'Flagrante',
   suspicious: 'Suspeita',
-  stop: 'Abordagem',
+  stop: 'Checagem',
   other: 'Outro',
 }
 

@@ -17,7 +17,7 @@ import { buildMockIndicators } from './indicators-mock'
  *
  * Everything comes from a single `dashboard_stats()` RPC call (see
  * `sql/017_dashboard_stats_unified.sql`). There is one record kind —
- * ocorrências; an abordagem is just the `stop` incident type.
+ * ocorrências; an checagem is just the `stop` incident type.
  *
  * Reads go through an untyped client on purpose — the generated `Database`
  * types collapse `.rpc()` args to unusable unions here (see the
@@ -235,7 +235,7 @@ interface StatsPayload {
     nickname: string | null
     incident_count?: Count
     last_occurred_at?: string | null
-    /** Pre-`sql/016` keys (abordagens only). */
+    /** Pre-`sql/016` keys (checagens only). */
     stop_count?: Count
     last_stopped_at?: string | null
   }[]
@@ -481,9 +481,9 @@ export function buildIndicatorsCsv(
         ['Ocorrências no período', k.totalIncidents],
         ['Ocorrências no período anterior', k.previousTotal ?? '—'],
         ['Média de ocorrências/dia', k.avgIncidentsPerDay],
-        ['Meliantes envolvidos', k.offendersInvolved ?? '—'],
-        ['Meliantes reincidentes no período', k.repeatOffenders ?? '—'],
-        ['Ocorrências com meliante vinculado', k.incidentsWithOffender ?? '—'],
+        ['Suspeitos envolvidos', k.offendersInvolved ?? '—'],
+        ['Suspeitos reincidentes no período', k.repeatOffenders ?? '—'],
+        ['Ocorrências com suspeito vinculado', k.incidentsWithOffender ?? '—'],
         ['Agentes com registro', k.activeAgents],
       ],
     ),
@@ -536,7 +536,7 @@ export function buildIndicatorsCsv(
 
   sections.push(
     csvSection(
-      'Top meliantes',
+      'Top suspeitos',
       ['Nome', 'Apelido', 'Ocorrências', 'Última ocorrência'],
       data.topOffenders.map((o) => [
         o.fullName ?? '—',

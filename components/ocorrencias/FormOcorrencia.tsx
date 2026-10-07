@@ -759,7 +759,7 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
         <SectionTitle index={4}>Pessoas envolvidas</SectionTitle>
 
         {offenders.length === 0 ? (
-          <p className="text-sm text-ink-secondary">Nenhum meliante vinculado.</p>
+          <p className="text-sm text-ink-secondary">Nenhum suspeito vinculado.</p>
         ) : (
           <ul className="space-y-2">
             {offenders.map((offender) => (
@@ -806,7 +806,7 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label={`Remover ${offender.fullName ?? 'meliante'}`}
+                  aria-label={`Remover ${offender.fullName ?? 'suspeito'}`}
                   onClick={() => setPendingRemove(offender.linkId)}
                 >
                   <Trash2 className="h-4 w-4 text-danger" />
@@ -817,7 +817,7 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
         )}
 
         <BuscaMeliante
-          label="Vincular meliante existente"
+          label="Vincular suspeito existente"
           excludeIds={offenders.map((offender) => offender.offenderId)}
           onSelect={(selected) =>
             addOffender({
@@ -833,7 +833,7 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
 
         <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(true)}>
           <UserPlus className="h-4 w-4" />
-          Cadastrar novo meliante
+          Cadastrar novo suspeito
         </Button>
       </section>
 
@@ -859,7 +859,7 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
           <DialogHeader>
             <DialogTitle>Remover vínculo?</DialogTitle>
             <DialogDescription>
-              O meliante deixará de estar vinculado a esta ocorrência. O cadastro dele não é
+              O suspeito deixará de estar vinculado a esta ocorrência. O cadastro dele não é
               excluído.
             </DialogDescription>
           </DialogHeader>

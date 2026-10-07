@@ -69,27 +69,27 @@ function CountBar({ count, max }: { count: number; max: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Top meliantes
+// Top suspeitos
 // ---------------------------------------------------------------------------
 export function TopOffendersTable({ rows }: { rows: TopOffenderRow[] }) {
   const max = Math.max(...rows.map((row) => row.incidentCount), 0)
 
   return (
     <TableCard
-      title="Top meliantes"
+      title="Top suspeitos"
       subtitle="Mais vinculados a ocorrências no período (suspeito ou autor)"
     >
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Meliante</TableHead>
+            <TableHead>Suspeito</TableHead>
             <TableHead className="text-right">Ocorrências</TableHead>
             <TableHead>Última</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.length === 0 ? (
-            <EmptyRow colSpan={3} label="Nenhum meliante vinculado a ocorrências no período" />
+            <EmptyRow colSpan={3} label="Nenhum suspeito vinculado a ocorrências no período" />
           ) : (
             rows.map((row) => {
               const name = row.fullName ?? row.nickname ?? 'Sem nome'

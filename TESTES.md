@@ -53,7 +53,7 @@ Não bloqueiam os testes; **Fix #3** (`sql/005_security_hardening.sql`) endereç
 **Causa raiz:** o bucket `operational-photos` é privado, mas todo o código de
 leitura usava `getPublicUrl()` / a coluna `photos.public_url`. URLs públicas de
 bucket privado retornam 400 → nenhuma foto aparecia nas telas de detalhe,
-miniaturas do dashboard, lista de registros nem avatares de meliante.
+miniaturas do dashboard, lista de registros nem avatares de suspeito.
 
 **Correção:**
 - Novo `lib/fotos/urls.ts` → `signPhotoUrls(client, paths)` gera signed URLs em

@@ -5,7 +5,7 @@ import { signPhotoUrls } from '@/lib/fotos/urls'
 import { fromOffenderPayload, type OffenderFormValues } from './form'
 
 /**
- * Data layer for the "Meliantes" (offenders) screens.
+ * Data layer for the "Suspeitos" (offenders) screens.
  *
  * Reads go through an untyped client on purpose — the generated `Database`
  * types collapse `.rpc()` args and dynamic-table access to unusable unions in
@@ -26,7 +26,7 @@ export interface OffenderSearchResult {
   nickname: string | null
   cpf: string | null
   mainPhotoUrl: string | null
-  /** Linked live incidents of any type ("abordagem" is just `type = 'stop'`). */
+  /** Linked live incidents of any type ("checagem" is just `type = 'stop'`). */
   incidentCount: number
   lastOccurredAt: string | null
 }
@@ -71,7 +71,7 @@ interface IncidentStats {
 
 /**
  * Count and latest date of the live incidents linked to each offender. The
- * RPC's own `stop_count`/`last_stopped_at` columns date from when abordagens
+ * RPC's own `stop_count`/`last_stopped_at` columns date from when checagens
  * were a separate `stops` table, so they are ignored in favour of this.
  */
 async function loadIncidentStats(
@@ -352,7 +352,7 @@ export async function deleteOffender(id: string): Promise<void> {
   })
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(body.error || 'Não foi possível excluir o meliante.')
+    throw new Error(body.error || 'Não foi possível excluir o suspeito.')
   }
 }
 

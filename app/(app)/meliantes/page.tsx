@@ -34,7 +34,7 @@ export default function OffendersPage() {
         setError(null)
       })
       .catch(() => {
-        if (!cancelled) setError('Não foi possível carregar os meliantes. Tente novamente.')
+        if (!cancelled) setError('Não foi possível carregar os suspeitos. Tente novamente.')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -50,7 +50,7 @@ export default function OffendersPage() {
     <div className="mx-auto max-w-6xl space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-ink">
-          Meliantes{' '}
+          Suspeitos{' '}
           {!loading && (
             <span className="font-semibold text-ink-muted">({results.length})</span>
           )}
@@ -58,7 +58,7 @@ export default function OffendersPage() {
         <Button asChild variant="primary" size="lg" className="w-full justify-center sm:w-auto">
           <Link href="/meliantes/nova">
             <Plus />
-            Novo meliante
+            Novo suspeito
           </Link>
         </Button>
       </header>
@@ -100,8 +100,8 @@ export default function OffendersPage() {
       ) : results.length === 0 ? (
         <div className="rounded-card border border-content-border bg-content-surface py-16 text-center text-sm text-ink-secondary shadow-card">
           {isSearching
-            ? 'Nenhum meliante encontrado para essa busca.'
-            : 'Nenhum meliante cadastrado ainda.'}
+            ? 'Nenhum suspeito encontrado para essa busca.'
+            : 'Nenhum suspeito cadastrado ainda.'}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

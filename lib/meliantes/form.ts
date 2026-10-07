@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /**
- * Shared schema, constants and helpers for the offender ("meliante") registry
+ * Shared schema, constants and helpers for the offender ("suspeito") registry
  * form (`components/meliantes/FormMeliante.tsx`).
  *
  * Identifiers stay in English to match the Supabase schema (`offenders`);

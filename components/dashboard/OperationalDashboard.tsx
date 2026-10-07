@@ -110,7 +110,7 @@ export function OperationalDashboard() {
         <div className="flex items-center gap-2 rounded-input border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-ink">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />
           Banco desatualizado: execute sql/017_dashboard_stats_unified.sql para liberar os
-          indicadores por região, horário e meliantes envolvidos.
+          indicadores por região, horário e suspeitos envolvidos.
         </div>
       )}
 

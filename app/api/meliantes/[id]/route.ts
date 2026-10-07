@@ -5,5 +5,5 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  return softDeleteRecord('offenders', 'offender', params.id, 'Meliante não encontrado.')
+  return softDeleteRecord('offenders', 'offender', params.id, 'Suspeito não encontrado.')
 }

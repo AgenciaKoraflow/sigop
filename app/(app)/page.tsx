@@ -23,7 +23,7 @@ export default function DashboardPage() {
       <Card className="flex flex-col items-center gap-3 rounded-card border-content-border p-8 text-center shadow-card sm:p-12">
         <h1 className="text-2xl font-bold text-ink">Bem-vindo ao SIGOP</h1>
         <p className="max-w-md text-sm text-ink-secondary">
-          Registre uma nova ocorrência ou abordagem em poucos passos.
+          Registre uma nova ocorrência ou checagem em poucos passos.
         </p>
         <div className="mt-2">
           <QuickActions />

@@ -59,7 +59,7 @@ export function BuscaMeliante({
   onSelect,
   onCreateNew,
   excludeIds = [],
-  label = 'Buscar meliante',
+  label = 'Buscar suspeito',
   placeholder = 'Nome, apelido ou CPF…',
   className,
   autoFocus = false,
@@ -104,7 +104,7 @@ export function BuscaMeliante({
         setResults(rows)
         setError(null)
       } catch {
-        if (!cancelled) setError('Não foi possível buscar meliantes (verifique a conexão).')
+        if (!cancelled) setError('Não foi possível buscar suspeitos (verifique a conexão).')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -264,7 +264,7 @@ export function BuscaMeliante({
 
           {showNoResults && (
             <div className="flex flex-col items-start gap-2 px-3 py-3">
-              <p className="text-sm text-ink-secondary">Nenhum meliante encontrado.</p>
+              <p className="text-sm text-ink-secondary">Nenhum suspeito encontrado.</p>
               {onCreateNew && (
                 <Button
                   type="button"

@@ -27,7 +27,7 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>
 
 const FEATURES = [
-  { icon: Shield, label: 'Cadastro de ocorrências e abordagens' },
+  { icon: Shield, label: 'Cadastro de ocorrências e checagens' },
   { icon: BarChart2, label: 'Dashboard operacional em tempo real' },
   { icon: Users, label: 'Funcionamento offline e sincronização' },
 ]
@@ -120,7 +120,7 @@ export default function LoginPage() {
             <span style={{ color: '#3b5fc0' }}>Ocorrências</span>
           </h1>
           <p className="max-w-sm text-sm leading-relaxed text-sidebar-muted">
-            Cadastro, consulta e gestão de ocorrências operacionais e abordagens
+            Cadastro, consulta e gestão de ocorrências operacionais e checagens
             de campo.
           </p>
 

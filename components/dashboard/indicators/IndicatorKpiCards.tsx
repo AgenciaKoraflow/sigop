@@ -70,7 +70,7 @@ const CARDS: CardDef[] = [
         : 'No período',
   },
   {
-    label: 'Meliantes envolvidos',
+    label: 'Suspeitos envolvidos',
     icon: Users,
     iconWrap: 'bg-kpi-pending-bg text-kpi-pending-icon',
     value: (k) => k.offendersInvolved,

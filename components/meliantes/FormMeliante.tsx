@@ -220,7 +220,7 @@ export function FormMeliante({
         }
 
         toast({
-          title: mode === 'create' ? 'Meliante cadastrado' : 'Cadastro atualizado',
+          title: mode === 'create' ? 'Suspeito cadastrado' : 'Cadastro atualizado',
         })
 
         if (onSaved) {
@@ -268,7 +268,7 @@ export function FormMeliante({
   if (notFound) {
     return (
       <div className="mx-auto max-w-3xl rounded-card border border-content-border bg-white p-8 text-center">
-        <p className="text-lg font-semibold text-ink">Meliante não encontrado</p>
+        <p className="text-lg font-semibold text-ink">Suspeito não encontrado</p>
         <p className="mt-1 text-sm text-ink-secondary">
           O cadastro pode ter sido removido ou o link está incorreto.
         </p>
@@ -290,10 +290,10 @@ export function FormMeliante({
     <div className="mx-auto max-w-3xl space-y-8 pb-28">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-ink">
-          {mode === 'create' ? 'Novo meliante' : 'Editar meliante'}
+          {mode === 'create' ? 'Novo suspeito' : 'Editar suspeito'}
         </h1>
         <p className="text-sm text-ink-secondary">
-          Preencha os dados de identificação do meliante.
+          Preencha os dados de identificação do suspeito.
         </p>
         {loadError && (
           <p className="mt-2 flex items-center gap-2 rounded-input border border-sync-pending-text/20 bg-sync-pending-bg px-3 py-2 text-xs font-medium text-sync-pending-text">
@@ -436,7 +436,7 @@ export function FormMeliante({
           </Button>
           <Button type="button" variant="primary" onClick={onSubmit} disabled={submitting}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {mode === 'create' ? 'Cadastrar meliante' : 'Salvar alterações'}
+            {mode === 'create' ? 'Cadastrar suspeito' : 'Salvar alterações'}
           </Button>
         </div>
       </footer>

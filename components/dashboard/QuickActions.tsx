@@ -14,7 +14,7 @@ import { INCIDENT_TYPE_OPTIONS } from '@/lib/ocorrencias/form'
 
 /**
  * The single "open new record" entry point. Clicking it drops down every
- * record type, including "Abordagem" — just one more `incidents.type` value,
+ * record type, including "Checagem" — just one more `incidents.type` value,
  * not a separate flow.
  */
 export function QuickActions() {

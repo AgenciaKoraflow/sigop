@@ -26,7 +26,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Início', href: '/', icon: LayoutDashboard },
   { label: 'Ocorrências', href: '/ocorrencias', icon: FileText },
-  { label: 'Meliantes', href: '/meliantes', icon: Users },
+  { label: 'Suspeitos', href: '/meliantes', icon: Users },
   { label: 'Painel', href: '/dashboard', icon: BarChart2, supervisorOnly: true },
   { label: 'Usuários', href: '/usuarios', icon: UserCog, adminOnly: true },
 ]

@@ -85,7 +85,7 @@ export function LinkOffenderDialog({
         setResults((data ?? []) as unknown as OffenderRow[])
         setError(null)
       } catch {
-        if (!cancelled) setError('Não foi possível buscar meliantes (verifique a conexão)')
+        if (!cancelled) setError('Não foi possível buscar suspeitos (verifique a conexão)')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -109,7 +109,7 @@ export function LinkOffenderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Vincular meliante existente</DialogTitle>
+          <DialogTitle>Vincular suspeito existente</DialogTitle>
           <DialogDescription>Busque por nome, nome social, apelido ou CPF.</DialogDescription>
         </DialogHeader>
 
@@ -132,7 +132,7 @@ export function LinkOffenderDialog({
           )}
           {error && <p className="px-1 py-3 text-sm text-danger">{error}</p>}
           {!loading && !error && term.trim().length >= 2 && results.length === 0 && (
-            <p className="px-1 py-3 text-sm text-ink-secondary">Nenhum meliante encontrado.</p>
+            <p className="px-1 py-3 text-sm text-ink-secondary">Nenhum suspeito encontrado.</p>
           )}
 
           {results.map((offender) => {
@@ -272,9 +272,9 @@ export function CreateOffenderDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Cadastrar novo meliante</DialogTitle>
+          <DialogTitle>Cadastrar novo suspeito</DialogTitle>
           <DialogDescription>
-            Cadastro resumido. O cadastro completo pode ser feito depois na ficha do meliante.
+            Cadastro resumido. O cadastro completo pode ser feito depois na ficha do suspeito.
           </DialogDescription>
         </DialogHeader>
 

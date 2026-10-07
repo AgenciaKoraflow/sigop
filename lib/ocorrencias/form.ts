@@ -30,7 +30,7 @@ export const INCIDENT_TYPE_OPTIONS: {
   { value: 'vandalism', label: 'Vandalismo', emoji: '🔨' },
   { value: 'in_flagrante', label: 'Flagrante', emoji: '⚠️' },
   { value: 'suspicious', label: 'Suspeito', emoji: '👁️' },
-  { value: 'stop', label: 'Abordagem', emoji: '🧍' },
+  { value: 'stop', label: 'Checagem', emoji: '🧍' },
   { value: 'other', label: 'Outros', emoji: '📋' },
 ]
 

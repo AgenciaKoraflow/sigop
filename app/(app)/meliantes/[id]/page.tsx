@@ -67,11 +67,11 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
     setDeleting(true)
     try {
       await deleteOffender(id)
-      toast({ title: 'Meliante excluído' })
+      toast({ title: 'Suspeito excluído' })
       router.push('/meliantes')
     } catch (error) {
       toast({
-        title: 'Não foi possível excluir o meliante',
+        title: 'Não foi possível excluir o suspeito',
         description: error instanceof Error ? error.message : 'Tente novamente.',
         variant: 'destructive',
       })
@@ -111,7 +111,7 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
   if (notFound || !detail) {
     return (
       <div className="mx-auto max-w-3xl rounded-card border border-content-border bg-white p-8 text-center">
-        <p className="text-lg font-semibold text-ink">Meliante não encontrado</p>
+        <p className="text-lg font-semibold text-ink">Suspeito não encontrado</p>
         <p className="mt-1 text-sm text-ink-secondary">
           O cadastro pode ter sido removido ou o link está incorreto.
         </p>
@@ -148,7 +148,7 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-secondary transition-colors hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" />
-        Meliantes
+        Suspeitos
       </Link>
 
       {/* Header --------------------------------------------------------- */}
@@ -271,7 +271,7 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
       <Dialog open={confirmDelete} onOpenChange={(open) => !deleting && setConfirmDelete(open)}>
         <DialogContent className="max-w-md" aria-describedby="delete-offender">
           <DialogHeader>
-            <DialogTitle>Excluir este meliante?</DialogTitle>
+            <DialogTitle>Excluir este suspeito?</DialogTitle>
             <DialogDescription id="delete-offender">
               A ficha de {name} deixa de aparecer nas buscas e nas ocorrências vinculadas
               {incidents.length > 0 ? ` (${incidents.length})` : ''}. Essa ação não pode ser

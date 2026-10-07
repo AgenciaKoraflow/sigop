@@ -3,7 +3,7 @@ import { INCIDENT_TYPE_OPTIONS } from '@/lib/ocorrencias/form'
 
 /**
  * Configuration for the operational listing screen (`/ocorrencias`), rendered
- * by `RecordsListView`. "Abordagem" is just one more `incidents.type` value,
+ * by `RecordsListView`. "Checagem" is just one more `incidents.type` value,
  * so there is a single record shape here — no per-module variant.
  *
  * Identifiers stay in English to match the schema; user-facing copy stays in

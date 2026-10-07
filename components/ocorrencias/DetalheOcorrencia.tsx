@@ -442,7 +442,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
         })
         if (error) throw new Error(error.message)
 
-        toast({ title: 'Meliante vinculado' })
+        toast({ title: 'Suspeito vinculado' })
         setLinkOpen(false)
         refresh()
       } catch (error) {
@@ -692,12 +692,12 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
           </h2>
           <Button variant="outline" size="sm" onClick={() => setLinkOpen(true)}>
             <UserPlus className="h-4 w-4" />
-            Vincular meliante
+            Vincular suspeito
           </Button>
         </div>
 
         {offenders.length === 0 ? (
-          <EmptyRow>Nenhum meliante vinculado a esta ocorrência.</EmptyRow>
+          <EmptyRow>Nenhum suspeito vinculado a esta ocorrência.</EmptyRow>
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2">
             {offenders.map((offender) => (
@@ -780,9 +780,9 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Vincular meliante</DialogTitle>
+            <DialogTitle>Vincular suspeito</DialogTitle>
             <DialogDescription>
-              Busque um meliante já cadastrado para vinculá-lo a esta ocorrência.
+              Busque um suspeito já cadastrado para vinculá-lo a esta ocorrência.
             </DialogDescription>
           </DialogHeader>
           <BuscaMeliante
@@ -800,7 +800,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
             <DialogTitle>Excluir esta ocorrência?</DialogTitle>
             <DialogDescription>
               A ocorrência {internalNumber} deixa de aparecer nas listas, no dashboard e nas
-              fichas dos meliantes vinculados. Essa ação não pode ser desfeita pelo aplicativo.
+              fichas dos suspeitos vinculados. Essa ação não pode ser desfeita pelo aplicativo.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
