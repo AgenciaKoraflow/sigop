@@ -40,6 +40,9 @@ export async function POST(request: Request) {
     password: currentPassword,
   })
   if (verifyError) return jsonNoStore({ error: 'A senha atual está incorreta.' }, 400)
+  // A successful sign-in creates a server-side session even without persistence.
+  // Drop it (scope local: a global sign-out would kill the caller's own session).
+  await verifier.auth.signOut({ scope: 'local' }).catch(() => undefined)
 
   let admin
   try {
@@ -53,6 +56,10 @@ export async function POST(request: Request) {
     app_metadata: { [MUST_CHANGE_PASSWORD_FLAG]: false },
   })
   if (error) return jsonNoStore({ error: 'Não foi possível trocar a senha.' }, 400)
+
+  // Every other device/session (possibly a stolen one) dies; the caller's own
+  // session stays so the legitimate flow is not interrupted.
+  await supabase.auth.signOut({ scope: 'others' })
 
   await getDb()?.from('audit_log').insert({
     entity_type: PASSWORD_AUDIT_ENTITY,

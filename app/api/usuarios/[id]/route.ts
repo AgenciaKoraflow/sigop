@@ -145,6 +145,9 @@ export async function DELETE(
     return serverError('user soft delete', softError)
   }
 
+  // Soft delete anonymises the login; make sure no session/refresh token lives on.
+  await revokeUserSessions(admin, params.id)
+
   // Free the unique identifiers so they can be reused by a new user.
   await db
     .from('profiles')

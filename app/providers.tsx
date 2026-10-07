@@ -31,6 +31,8 @@ export function Providers({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
+      // Nothing fetched for the previous user may survive in memory.
+      if (event === 'SIGNED_OUT') client.clear()
       if (
         event === 'SIGNED_IN' ||
         event === 'SIGNED_OUT' ||
