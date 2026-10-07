@@ -9,13 +9,16 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { searchOffenders, type OffenderSearchResult } from '@/lib/meliantes/data'
 import { CardMeliante } from '@/components/meliantes/CardMeliante'
+import { RecordsPagination } from '@/components/records/RecordsPagination'
 
 const SEARCH_DEBOUNCE_MS = 400
+const OFFENDERS_PAGE_SIZE = 20
 
 export default function OffendersPage() {
   const [term, setTerm] = useState('')
   const [debounced, setDebounced] = useState('')
   const [results, setResults] = useState<OffenderSearchResult[]>([])
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,7 +47,18 @@ export default function OffendersPage() {
     }
   }, [debounced])
 
+  // Reset to the first page whenever the search changes.
+  useEffect(() => {
+    setPage(1)
+  }, [debounced])
+
   const isSearching = debounced.length > 0
+  const totalPages = Math.max(1, Math.ceil(results.length / OFFENDERS_PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageItems = results.slice(
+    (currentPage - 1) * OFFENDERS_PAGE_SIZE,
+    currentPage * OFFENDERS_PAGE_SIZE,
+  )
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -104,11 +118,21 @@ export default function OffendersPage() {
             : 'Nenhum suspeito cadastrado ainda.'}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {results.map((offender) => (
-            <CardMeliante key={offender.id} offender={offender} />
-          ))}
-        </div>
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {pageItems.map((offender) => (
+              <CardMeliante key={offender.id} offender={offender} />
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <RecordsPagination
+              page={currentPage}
+              totalPages={totalPages}
+              isFetching={false}
+              onPage={setPage}
+            />
+          )}
+        </>
       )}
     </div>
   )

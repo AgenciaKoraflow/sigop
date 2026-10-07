@@ -223,10 +223,10 @@ function CreateForm({
               onClick={() => {
                 if (!created) return
                 if (onSaved) onSaved(created.id)
-                else router.push(`/usuarios/${created.id}`)
+                else router.push('/usuarios')
               }}
             >
-              Abrir usuário
+              Concluir
             </Button>
           </DialogFooter>
         </DialogContent>
