@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { initials } from '@/hooks/use-current-user'
 import { PhotoUpload } from '@/components/fotos/PhotoUpload'
 import { PHOTO_BUCKET } from '@/lib/fotos/urls'
+import { escapeLikeTerm } from '@/lib/search/escape'
 import { MAX_PHOTOS_PER_OFFENDER, maskCpf } from '@/lib/meliantes/form'
 import type { LinkedOffender } from '@/lib/ocorrencias/form'
 
@@ -78,7 +79,7 @@ export function LinkOffenderDialog({
         // under this project's supabase-js pairing (same reason writes are untyped).
         const supabase = createClient() as unknown as SupabaseClient
         const { data, error: rpcError } = await supabase.rpc('search_offenders', {
-          term: trimmed,
+          term: escapeLikeTerm(trimmed),
         })
         if (cancelled) return
         if (rpcError) throw new Error(rpcError.message)

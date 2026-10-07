@@ -7,6 +7,7 @@ import {
 } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { signPhotoUrls } from '@/lib/fotos/urls'
+import { buildOrIlike } from '@/lib/search/escape'
 import { PAGE_SIZE, RECORD_CONFIG, type RecordFilters, type RecordListItem } from './config'
 
 /**
@@ -30,15 +31,6 @@ function untyped(): SupabaseClient {
 /** Compact, URL-safe code fragment from a UUID. */
 function shortId(id: string): string {
   return id.replace(/-/g, '').slice(0, 6).toUpperCase()
-}
-
-/** Strip characters that would break a PostgREST `or` filter. */
-function sanitize(term: string): string {
-  return term
-    .trim()
-    .replace(/[%,()]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
 }
 
 function resolvePeriod(filters: RecordFilters): { from?: string; to?: string } {
@@ -147,12 +139,8 @@ async function fetchServer(
   if (to) query = query.lte(RECORD_CONFIG.dateColumn, to)
   if (filters.type) query = query.eq('type', filters.type)
 
-  const term = sanitize(filters.search)
-  if (term) {
-    query = query.or(
-      RECORD_CONFIG.searchColumns.map((column) => `${column}.ilike.%${term}%`).join(','),
-    )
-  }
+  const searchFilter = buildOrIlike(RECORD_CONFIG.searchColumns, filters.search)
+  if (searchFilter) query = query.or(searchFilter)
 
   const sortColumn = RECORD_CONFIG.sortColumnMap[filters.sort.column] ?? RECORD_CONFIG.dateColumn
   const start = (filters.page - 1) * PAGE_SIZE

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { buildOrIlike } from '@/lib/search/escape'
 import type { UserRole } from '@/types/app.types'
 
 /**
@@ -16,17 +17,10 @@ import type { UserRole } from '@/types/app.types'
 
 export const USERS_PAGE_SIZE = 20
 
+const SEARCH_COLUMNS = ['full_name', 'email', 'badge_number'] as const
+
 function untyped(): SupabaseClient {
   return createClient() as unknown as SupabaseClient
-}
-
-/** Strip characters that would break a PostgREST `or` filter. */
-function sanitize(term: string): string {
-  return term
-    .trim()
-    .replace(/[%,()]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
 }
 
 export interface UserFilters {
@@ -98,14 +92,8 @@ export async function listUsers(filters: UserFilters): Promise<UsersPage> {
     if (filters.role) query = query.eq('role', filters.role)
     if (filters.status) query = query.eq('is_active', filters.status === 'active')
 
-    const term = sanitize(filters.search)
-    if (term) {
-      query = query.or(
-        ['full_name', 'email', 'badge_number']
-          .map((column) => `${column}.ilike.%${term}%`)
-          .join(','),
-      )
-    }
+    const searchFilter = buildOrIlike(SEARCH_COLUMNS, filters.search)
+    if (searchFilter) query = query.or(searchFilter)
 
     const start = (filters.page - 1) * USERS_PAGE_SIZE
     return query

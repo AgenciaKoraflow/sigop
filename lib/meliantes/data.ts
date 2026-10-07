@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import type { RemotePhoto } from '@/components/fotos/PhotoGallery'
 import { signPhotoUrls } from '@/lib/fotos/urls'
+import { escapeLikeTerm } from '@/lib/search/escape'
 import { fromOffenderPayload, type OffenderFormValues } from './form'
 
 /**
@@ -173,7 +174,8 @@ export async function loadOffenderPhotoUrls(
 export async function searchOffenders(term: string): Promise<OffenderSearchResult[]> {
   const supabase = untyped()
   const { data, error } = await supabase.rpc('search_offenders_with_stats', {
-    term: term.trim(),
+    // The RPC concatenates the term into ILIKE patterns: escape wildcards.
+    term: escapeLikeTerm(term),
   })
   if (error) throw new Error(error.message)
 
