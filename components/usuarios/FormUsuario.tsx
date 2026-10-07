@@ -95,7 +95,10 @@ function CreateForm({
     defaultValues: emptyUserCreateForm(),
     mode: 'onBlur',
   })
-  const { control, register, formState, handleSubmit, setValue } = form
+  const { control, register, formState, handleSubmit, setValue, getValues } = form
+  React.useEffect(() => {
+    if (!getValues('password')) setValue('password', generateProvisionalPassword())
+  }, [getValues, setValue])
   const errors = formState.errors
 
   const onSubmit = handleSubmit(

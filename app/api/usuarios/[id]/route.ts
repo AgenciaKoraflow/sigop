@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/usuarios/guard'
 import { userEditSchema, nullIfEmpty } from '@/lib/usuarios/form'
 
@@ -73,6 +73,9 @@ export async function PATCH(
       )
     }
   }
+
+  // A ban stops new logins/refreshes, but issued refresh tokens must die too.
+  if (parsed.data.is_active === false) await revokeUserSessions(admin, params.id)
 
   return NextResponse.json({ id: params.id })
 }

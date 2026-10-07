@@ -24,3 +24,19 @@ export function createAdminClient() {
     { auth: { autoRefreshToken: false, persistSession: false } },
   )
 }
+
+/**
+ * Kills every session (and so every refresh token) of a user. Call after
+ * deactivating the account or changing its password: a ban or a new password
+ * alone leaves already-issued refresh tokens usable. Needs sql/020.
+ */
+export async function revokeUserSessions(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<boolean> {
+  const { error } = await (admin as unknown as {
+    rpc: (fn: string, args: object) => Promise<{ error: unknown }>
+  }).rpc('revoke_user_sessions', { p_user: userId })
+  if (error) console.error('[auth] could not revoke sessions')
+  return !error
+}

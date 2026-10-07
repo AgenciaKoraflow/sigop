@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import type { UserRole } from '@/types/app.types'
-import { generateProvisionalPassword } from '@/lib/auth/password'
+import { assignedPasswordSchema, generateProvisionalPassword } from '@/lib/auth/password'
 
-// Provisional password is `sigop@<current year>` (see lib/auth/password.ts).
+// Provisional password is random, from a CSPRNG (see lib/auth/password.ts).
 export { generateProvisionalPassword }
 
 /**
@@ -58,10 +58,7 @@ export const userCreateSchema = z.object({
     .min(USER_NAME_MIN, `Informe o nome completo (mínimo ${USER_NAME_MIN} caracteres)`)
     .max(180, 'Máximo de 180 caracteres'),
   email: z.string().trim().toLowerCase().email('E-mail inválido'),
-  password: z
-    .string()
-    .min(USER_PASSWORD_MIN, `A senha provisória precisa de ao menos ${USER_PASSWORD_MIN} caracteres`)
-    .max(72, 'Máximo de 72 caracteres'),
+  password: assignedPasswordSchema,
   role: roleEnum,
   badge_number: optionalText,
   unit_id: optionalText,
@@ -82,11 +79,7 @@ export const userEditSchema = z.object({
 
 /** Admin-driven password change — omitted password means "generate one". */
 export const passwordChangeSchema = z.object({
-  password: z
-    .string()
-    .min(USER_PASSWORD_MIN, `A senha precisa de ao menos ${USER_PASSWORD_MIN} caracteres`)
-    .max(72, 'Máximo de 72 caracteres')
-    .optional(),
+  password: assignedPasswordSchema.optional(),
 })
 
 export type UserCreateValues =z.infer<typeof userCreateSchema>
@@ -98,7 +91,8 @@ export type UserEditValues = z.infer<typeof userEditSchema>
 export const emptyUserCreateForm = (): UserCreateValues => ({
   full_name: '',
   email: '',
-  password: generateProvisionalPassword(),
+  // Filled on mount by the form (a random value here would break hydration).
+  password: '',
   role: 'agent',
   badge_number: '',
   unit_id: '',

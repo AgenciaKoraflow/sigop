@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import {
   GENERIC_INVALID,
   getDb,
@@ -53,6 +53,9 @@ export async function POST(request: Request) {
       400,
     )
   }
+
+  // Whoever held the old password (or a stolen session) is signed out.
+  await revokeUserSessions(admin, row.user_id)
 
   await db
     .from('password_reset_codes')

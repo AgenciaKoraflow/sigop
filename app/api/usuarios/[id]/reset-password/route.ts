@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { MUST_CHANGE_PASSWORD_FLAG } from '@/lib/auth/password'
 import { requireAdmin } from '@/lib/usuarios/guard'
 import {
@@ -49,6 +49,9 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
+
+  // Old sessions must not survive a password change.
+  await revokeUserSessions(admin, params.id)
 
   // Best effort — feeds the "trocas de senha" counter on the users dashboard.
   await (admin as unknown as SupabaseClient).from('audit_log').insert({
