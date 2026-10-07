@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { adminUnavailable, serverError } from '@/lib/api/errors'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { MUST_CHANGE_PASSWORD_FLAG } from '@/lib/auth/password'
@@ -36,10 +37,7 @@ export async function POST(
   try {
     admin = createAdminClient()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Configuração do servidor ausente.' },
-      { status: 503 },
-    )
+    return adminUnavailable(err)
   }
 
   const { error } = await admin.auth.admin.updateUserById(params.id, {
@@ -47,7 +45,7 @@ export async function POST(
     app_metadata: { [MUST_CHANGE_PASSWORD_FLAG]: true },
   })
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+    return serverError('reset-password', error, 400)
   }
 
   // Old sessions must not survive a password change.

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { adminUnavailable, serverError } from '@/lib/api/errors'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/usuarios/guard'
@@ -26,10 +27,7 @@ export async function softDeleteRecord(
   try {
     admin = createAdminClient()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Configuração do servidor ausente.' },
-      { status: 503 },
-    )
+    return adminUnavailable(err)
   }
   const db = admin as unknown as SupabaseClient
 
@@ -40,7 +38,7 @@ export async function softDeleteRecord(
     .is('deleted_at', null)
     .select('id')
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+    return serverError(`soft delete ${table}`, error, 400)
   }
   if (!data || data.length === 0) {
     return NextResponse.json({ error: notFoundMessage }, { status: 404 })

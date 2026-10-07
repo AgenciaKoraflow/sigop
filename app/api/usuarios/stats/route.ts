@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { adminUnavailable, serverError } from '@/lib/api/errors'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/usuarios/guard'
@@ -61,10 +62,7 @@ export async function GET(request: Request) {
   try {
     admin = createAdminClient()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Configuração do servidor ausente.' },
-      { status: 503 },
-    )
+    return adminUnavailable(err)
   }
   const db = admin as unknown as SupabaseClient
 
@@ -102,13 +100,13 @@ export async function GET(request: Request) {
   let profiles = await loadProfiles(true)
   // `profiles.deleted_at` only exists once sql/015 is applied.
   if (profiles.error && /deleted_at/i.test(profiles.error)) profiles = await loadProfiles(false)
-  if (profiles.error) return NextResponse.json({ error: profiles.error }, { status: 500 })
+  if (profiles.error) return serverError('stats profiles', new Error(profiles.error))
 
   // --- Last sign-in (auth.users) ---------------------------------------------
   const lastSignIn = new Map<string, number | null>()
   for (let page = 1; ; page += 1) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: AUTH_PAGE_SIZE })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return serverError('stats listUsers', error)
     for (const user of data.users) {
       lastSignIn.set(user.id, user.last_sign_in_at ? Date.parse(user.last_sign_in_at) : null)
     }

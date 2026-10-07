@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { adminUnavailable } from '@/lib/api/errors'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { MUST_CHANGE_PASSWORD_FLAG } from '@/lib/auth/password'
@@ -24,10 +25,7 @@ export async function POST(request: Request) {
   try {
     admin = createAdminClient()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Configuração do servidor ausente.' },
-      { status: 503 },
-    )
+    return adminUnavailable(err)
   }
 
   const { data, error } = await admin.auth.admin.createUser({
@@ -45,12 +43,12 @@ export async function POST(request: Request) {
     // "Database error creating new user" = the `handle_new_user` trigger on
     // auth.users raised (see sql/014_handle_new_user_fix.sql).
     const triggerFailure = /database error/i.test(error?.message ?? '')
-    if (triggerFailure) console.error('[usuarios] createUser failed in the profile trigger:', error)
+    if (error) console.error('[usuarios] createUser failed:', error.message)
     const message = duplicate
       ? 'Já existe um usuário com esse e-mail.'
       : triggerFailure
         ? 'O banco recusou a criação do perfil do usuário (trigger handle_new_user). Avise o suporte técnico.'
-        : error?.message ?? 'Falha ao criar o usuário.'
+        : 'Falha ao criar o usuário.'
     return NextResponse.json(
       { error: message },
       { status: duplicate ? 409 : triggerFailure ? 500 : 400 },
@@ -71,8 +69,9 @@ export async function POST(request: Request) {
     .eq('id', data.user.id)
 
   if (profileError) {
+    console.error('[usuarios] profile completion failed:', profileError.message)
     return NextResponse.json(
-      { error: `Usuário criado, mas o perfil não pôde ser completado: ${profileError.message}` },
+      { error: 'Usuário criado, mas o perfil não pôde ser completado. Edite o usuário para concluir.' },
       { status: 500 },
     )
   }

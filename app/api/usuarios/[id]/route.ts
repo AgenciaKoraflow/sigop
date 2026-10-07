@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { adminUnavailable, serverError } from '@/lib/api/errors'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/usuarios/guard'
@@ -36,10 +37,7 @@ export async function PATCH(
   try {
     admin = createAdminClient()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Configuração do servidor ausente.' },
-      { status: 503 },
-    )
+    return adminUnavailable(err)
   }
   const db = admin as unknown as SupabaseClient
 
@@ -56,7 +54,7 @@ export async function PATCH(
   if (error) {
     const duplicate = /duplicate key|unique/i.test(error.message)
     return NextResponse.json(
-      { error: duplicate ? 'Esse número de matrícula já está em uso.' : error.message },
+      { error: duplicate ? 'Esse número de matrícula já está em uso.' : 'Não foi possível atualizar o usuário.' },
       { status: duplicate ? 409 : 400 },
     )
   }
@@ -67,8 +65,9 @@ export async function PATCH(
       ban_duration: parsed.data.is_active ? 'none' : BAN_DURATION,
     })
     if (banError) {
+      console.error('[usuarios] ban update failed:', banError.message)
       return NextResponse.json(
-        { error: `Perfil atualizado, mas o acesso não pôde ser ${parsed.data.is_active ? 'liberado' : 'bloqueado'}: ${banError.message}` },
+        { error: `Perfil atualizado, mas o acesso não pôde ser ${parsed.data.is_active ? 'liberado' : 'bloqueado'}.` },
         { status: 500 },
       )
     }
@@ -96,10 +95,7 @@ export async function DELETE(
   try {
     admin = createAdminClient()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Configuração do servidor ausente.' },
-      { status: 503 },
-    )
+    return adminUnavailable(err)
   }
   const db = admin as unknown as SupabaseClient
 
@@ -123,8 +119,8 @@ export async function DELETE(
     return NextResponse.json(
       {
         error: missingColumn
-          ? 'Este usuário possui registros no sistema. Para excluí-lo, aplique a migração sql/015_profiles_deleted_at.sql no banco.'
-          : markError.message,
+          ? 'Este usuário possui registros no sistema. Avise o suporte técnico.'
+          : 'Não foi possível excluir o usuário.',
       },
       { status: missingColumn ? 409 : 400 },
     )
@@ -133,7 +129,7 @@ export async function DELETE(
   const { error: softError } = await admin.auth.admin.deleteUser(params.id, true)
   if (softError) {
     await db.from('profiles').update({ deleted_at: null }).eq('id', params.id)
-    return NextResponse.json({ error: softError.message }, { status: 500 })
+    return serverError('user soft delete', softError)
   }
 
   // Free the unique identifiers so they can be reused by a new user.
