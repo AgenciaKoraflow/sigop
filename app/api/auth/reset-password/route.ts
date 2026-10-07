@@ -1,17 +1,24 @@
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import {
   GENERIC_INVALID,
+  bindingHash,
+  clearBindingCookie,
   getDb,
   hmac,
   isSameOrigin,
   jsonNoStore,
+  readBinding,
+  safeEqualHex,
+  tooManyRequests,
 } from '@/lib/auth/reset'
+import { LIMITS, clientIp, rateLimit } from '@/lib/auth/rate-limit'
 import { MUST_CHANGE_PASSWORD_FLAG, resetPasswordSchema } from '@/lib/auth/password'
 import { PASSWORD_AUDIT_ENTITY } from '@/lib/usuarios/form'
 
 /**
  * POST /api/auth/reset-password { email, token, password }
- * Final step: consumes the one-time token and sets the new password.
+ * Final step: consumes the one-time token (bound to the requesting browser,
+ * compared in constant time, single use) and sets the new password.
  */
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) return jsonNoStore({ error: 'Requisição inválida.' }, 403)
@@ -29,20 +36,57 @@ export async function POST(request: Request) {
     return jsonNoStore({ error: 'Serviço indisponível. Tente mais tarde.' }, 503)
   }
 
-  // Atomic single use: only one concurrent caller gets the row back.
+  const ip = clientIp(request)
+  const limit = await rateLimit(db, [
+    { scope: 'rs:ip', parts: [ip], ...LIMITS.reset.ip },
+    { scope: 'rs:ipe', parts: [ip, email], ...LIMITS.reset.ipEmail },
+  ])
+  if (!limit.allowed) return tooManyRequests(limit.retryAfter)
+
+  const candidate = hmac(`token:${token}`)
+
   const { data: row } = await db
     .from('password_reset_codes')
-    .update({ consumed_at: new Date().toISOString() })
+    .select('id, user_id, reset_token_hash')
     .eq('email', email)
-    .eq('reset_token_hash', hmac(`token:${token}`))
+    .eq('binding_hash', bindingHash(readBinding(request)))
+    .not('reset_token_hash', 'is', null)
     .is('consumed_at', null)
     .gt('reset_expires_at', new Date().toISOString())
-    .select('user_id')
-    .maybeSingle<{ user_id: string | null }>()
-  if (!row?.user_id) return jsonNoStore({ error: GENERIC_INVALID }, 400)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; user_id: string | null; reset_token_hash: string }>()
+
+  if (!row) {
+    safeEqualHex(candidate, hmac('token:decoy'))
+    return jsonNoStore({ error: GENERIC_INVALID }, 400)
+  }
+  if (!row.user_id || !safeEqualHex(candidate, row.reset_token_hash)) {
+    return jsonNoStore({ error: GENERIC_INVALID }, 400)
+  }
+  const userId = row.user_id
+
+  // Atomic single use: only one concurrent caller gets the row back.
+  const { data: claimed } = await db
+    .from('password_reset_codes')
+    .update({ consumed_at: new Date().toISOString() })
+    .eq('id', row.id)
+    .is('consumed_at', null)
+    .select('id')
+    .maybeSingle()
+  if (!claimed) return jsonNoStore({ error: GENERIC_INVALID }, 400)
+
+  // The account may have been deactivated/deleted since the code was sent.
+  const { data: profile } = await db
+    .from('profiles')
+    .select('is_active')
+    .eq('id', userId)
+    .is('deleted_at', null)
+    .maybeSingle<{ is_active: boolean }>()
+  if (!profile?.is_active) return jsonNoStore({ error: GENERIC_INVALID }, 400)
 
   const admin = createAdminClient()
-  const { error } = await admin.auth.admin.updateUserById(row.user_id, {
+  const { error } = await admin.auth.admin.updateUserById(userId, {
     password,
     app_metadata: { [MUST_CHANGE_PASSWORD_FLAG]: false },
   })
@@ -55,20 +99,21 @@ export async function POST(request: Request) {
   }
 
   // Whoever held the old password (or a stolen session) is signed out.
-  await revokeUserSessions(admin, row.user_id)
+  await revokeUserSessions(admin, userId)
 
+  // Every other pending code/token of this account dies with the old password.
   await db
     .from('password_reset_codes')
     .update({ consumed_at: new Date().toISOString() })
-    .eq('user_id', row.user_id)
+    .eq('user_id', userId)
     .is('consumed_at', null)
 
   await db.from('audit_log').insert({
     entity_type: PASSWORD_AUDIT_ENTITY,
-    entity_id: row.user_id,
+    entity_id: userId,
     operation: 'update',
-    performed_by: row.user_id,
+    performed_by: userId,
   })
 
-  return jsonNoStore({ ok: true })
+  return clearBindingCookie(jsonNoStore({ ok: true }))
 }

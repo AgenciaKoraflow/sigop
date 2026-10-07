@@ -14,9 +14,6 @@ import { RESET_CODE_LENGTH } from '@/lib/auth/password'
 export const CODE_TTL_MIN = 10
 export const RESET_TOKEN_TTL_MIN = 10
 export const MAX_ATTEMPTS = 5
-const EMAIL_COOLDOWN_SEC = 60
-const EMAIL_MAX_PER_HOUR = 5
-const IP_MAX_PER_HOUR = 20
 
 /** Same wording for every failure so nothing reveals which step went wrong. */
 export const GENERIC_INVALID = 'Código inválido ou expirado. Solicite um novo.'
@@ -59,9 +56,72 @@ export function generateResetToken(): string {
   return randomBytes(32).toString('base64url')
 }
 
-export function clientIpHash(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  return hmac(`ip:${forwarded || request.headers.get('x-real-ip') || 'unknown'}`)
+// ---------------------------------------------------------------------------
+// Browser binding. The code is only redeemable from the browser that asked for
+// it: a random value lives in an HttpOnly cookie and its HMAC is stored with the
+// code. A third party who knows the address can neither burn the victim's
+// attempts nor redeem a code, and a code an attacker requested "for" the victim
+// is useless in the victim's browser (and vice-versa).
+// ---------------------------------------------------------------------------
+export const BINDING_COOKIE = 'sigop_rb'
+const BINDING_PATTERN = /^[A-Za-z0-9_-]{43}$/
+const BINDING_MAX_AGE_SEC = 30 * 60
+
+export function newBinding(): string {
+  return randomBytes(32).toString('base64url')
+}
+
+/** The caller's binding cookie, or null when absent/malformed. */
+export function readBinding(request: Request): string | null {
+  const header = request.headers.get('cookie')
+  if (!header) return null
+  for (const part of header.split(';')) {
+    const [name, ...rest] = part.trim().split('=')
+    if (name === BINDING_COOKIE) {
+      const value = rest.join('=')
+      return BINDING_PATTERN.test(value) ? value : null
+    }
+  }
+  return null
+}
+
+/** HMAC of a binding; a missing cookie hashes a throwaway value (never matches). */
+export function bindingHash(binding: string | null): string {
+  return hmac(`bind:${binding ?? newBinding()}`)
+}
+
+const BINDING_COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'strict' as const,
+  path: '/api/auth',
+}
+
+export function setBindingCookie<T>(response: NextResponse<T>, binding: string): NextResponse<T> {
+  response.cookies.set(BINDING_COOKIE, binding, {
+    ...BINDING_COOKIE_OPTIONS,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: BINDING_MAX_AGE_SEC,
+  })
+  return response
+}
+
+export function clearBindingCookie<T>(response: NextResponse<T>): NextResponse<T> {
+  response.cookies.set(BINDING_COOKIE, '', {
+    ...BINDING_COOKIE_OPTIONS,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 0,
+  })
+  return response
+}
+
+/** 429 for an exhausted IP / IP+identifier budget (independent of the account). */
+export function tooManyRequests(retryAfter: number) {
+  const response = jsonNoStore(
+    { error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' },
+    429,
+  )
+  response.headers.set('Retry-After', String(Math.max(1, retryAfter)))
+  return response
 }
 
 export function minutesFromNow(minutes: number): string {
@@ -74,26 +134,6 @@ export function getDb(): SupabaseClient | null {
   } catch {
     return null
   }
-}
-
-/** True when the e-mail or IP exceeded the request budget (or is cooling down). */
-export async function isRateLimited(db: SupabaseClient, email: string, ipHash: string) {
-  const hourAgo = new Date(Date.now() - 3_600_000).toISOString()
-  const cooldown = new Date(Date.now() - EMAIL_COOLDOWN_SEC * 1000).toISOString()
-
-  const [byEmail, byIp, recent] = await Promise.all([
-    db.from('password_reset_codes').select('id', { count: 'exact', head: true })
-      .eq('email', email).gte('created_at', hourAgo),
-    db.from('password_reset_codes').select('id', { count: 'exact', head: true })
-      .eq('ip_hash', ipHash).gte('created_at', hourAgo),
-    db.from('password_reset_codes').select('id', { count: 'exact', head: true })
-      .eq('email', email).gte('created_at', cooldown),
-  ])
-  return (
-    (byEmail.count ?? 0) >= EMAIL_MAX_PER_HOUR ||
-    (byIp.count ?? 0) >= IP_MAX_PER_HOUR ||
-    (recent.count ?? 0) > 0
-  )
 }
 
 function escapeHtml(value: string) {

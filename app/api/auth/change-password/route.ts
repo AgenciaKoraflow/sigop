@@ -1,7 +1,8 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getDb, isSameOrigin, jsonNoStore } from '@/lib/auth/reset'
+import { getDb, isSameOrigin, jsonNoStore, tooManyRequests } from '@/lib/auth/reset'
+import { LIMITS, clientIp, rateLimit } from '@/lib/auth/rate-limit'
 import { MUST_CHANGE_PASSWORD_FLAG, changePasswordSchema } from '@/lib/auth/password'
 import { PASSWORD_AUDIT_ENTITY } from '@/lib/usuarios/form'
 
@@ -28,6 +29,16 @@ export async function POST(request: Request) {
   if (currentPassword === password) {
     return jsonNoStore({ error: 'A nova senha deve ser diferente da atual.' }, 400)
   }
+
+  // The current-password check is a password oracle for anyone holding the
+  // session (e.g. a stolen cookie): cap it per account and per IP.
+  const db = getDb()
+  if (!db) return jsonNoStore({ error: 'Serviço indisponível. Tente mais tarde.' }, 503)
+  const limit = await rateLimit(db, [
+    { scope: 'cp:ip', parts: [clientIp(request)], ...LIMITS.change.ip },
+    { scope: 'cp:u', parts: [user.id], ...LIMITS.change.user },
+  ])
+  if (!limit.allowed) return tooManyRequests(limit.retryAfter)
 
   // Verify the current password on a throwaway client (no session persisted).
   const verifier = createSupabaseClient(
@@ -61,7 +72,7 @@ export async function POST(request: Request) {
   // session stays so the legitimate flow is not interrupted.
   await supabase.auth.signOut({ scope: 'others' })
 
-  await getDb()?.from('audit_log').insert({
+  await db.from('audit_log').insert({
     entity_type: PASSWORD_AUDIT_ENTITY,
     entity_id: user.id,
     operation: 'update',

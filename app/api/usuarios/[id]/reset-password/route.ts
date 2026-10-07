@@ -62,5 +62,6 @@ export async function POST(
     performed_by: gate.userId,
   })
 
-  return NextResponse.json({ password })
+  // The plaintext provisional password is shown once: keep it out of every cache.
+  return NextResponse.json({ password }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
 }
