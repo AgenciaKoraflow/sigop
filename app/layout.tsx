@@ -14,6 +14,10 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+// The CSP nonce is minted per request in middleware, so pages must render per
+// request — a prerendered page would ship scripts without a matching nonce.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "SIGOP",
   description: "Operational incident management system",
