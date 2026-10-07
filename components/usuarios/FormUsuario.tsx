@@ -214,6 +214,7 @@ function CreateForm({
             <div className="space-y-3 text-sm">
               <CopyRow label="E-mail" value={created.email} />
               <CopyRow label="Senha provisória" value={created.password} mono />
+              <CopyAllButton email={created.email} password={created.password} />
             </div>
           )}
           <DialogFooter>
@@ -490,6 +491,25 @@ function StickyFooter({
         </Button>
       </div>
     </footer>
+  )
+}
+
+function CopyAllButton({ email, password }: { email: string; password: string }) {
+  const [copied, setCopied] = React.useState(false)
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="w-full"
+      onClick={() => {
+        void navigator.clipboard?.writeText(`E-mail: ${email}\nSenha provisória: ${password}`)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }}
+    >
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      {copied ? 'Copiado!' : 'Copiar e-mail e senha'}
+    </Button>
   )
 }
 

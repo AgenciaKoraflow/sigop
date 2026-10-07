@@ -204,7 +204,7 @@ export function DetalheUsuario({
             Você não pode inativar ou excluir a própria conta nem alterar o próprio papel.
           </p>
         )}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 sm:flex-wrap">
           <Button variant="outline" onClick={() => setChangingPassword(true)} disabled={busy}>
             <KeyRound className="h-4 w-4" />
             Trocar senha
@@ -213,17 +213,21 @@ export function DetalheUsuario({
             variant={detail.isActive ? 'destructive' : 'outline'}
             onClick={() => setConfirmToggle(true)}
             disabled={busy || isSelf}
+            aria-label={detail.isActive ? 'Inativar' : 'Ativar'}
+            title={detail.isActive ? 'Inativar' : 'Ativar'}
           >
             <Power className="h-4 w-4" />
-            {detail.isActive ? 'Inativar' : 'Ativar'}
+            <span className="hidden sm:inline">{detail.isActive ? 'Inativar' : 'Ativar'}</span>
           </Button>
           <Button
             variant="destructive"
             onClick={() => setConfirmDelete(true)}
             disabled={busy || isSelf}
+            aria-label="Excluir usuário"
+            title="Excluir usuário"
           >
             <Trash2 className="h-4 w-4" />
-            Excluir usuário
+            <span className="hidden sm:inline">Excluir usuário</span>
           </Button>
         </div>
       </section>
