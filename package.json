@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "test": "node --test \"lib/**/*.test.ts\"",
     "gen:types": "supabase gen types typescript --project-id iiuvwngyyrkfnchkjued --schema public > types/database.types.ts"
   },
   "dependencies": {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { adminUnavailable, serverError } from '@/lib/api/errors'
+import { adminUnavailable, invalidId, serverError } from '@/lib/api/errors'
+import { isUuid } from '@/lib/api/request-guards'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/usuarios/guard'
@@ -15,6 +16,7 @@ export async function PATCH(
 ) {
   const gate = await requireAdmin()
   if (!gate.ok) return gate.response
+  if (!isUuid(params.id)) return invalidId()
 
   const json = await request.json().catch(() => null)
   const parsed = userEditSchema.partial().safeParse(json)
@@ -50,13 +52,23 @@ export async function PATCH(
   if (parsed.data.unit_id !== undefined) patch.unit_id = nullIfEmpty(parsed.data.unit_id)
   if (parsed.data.is_active !== undefined) patch.is_active = parsed.data.is_active
 
-  const { error } = await db.from('profiles').update(patch).eq('id', params.id)
+  // Soft-deleted profiles are not editable (re-activating one would try to
+  // un-ban an auth user that no longer exists).
+  const { data: updated, error } = await db
+    .from('profiles')
+    .update(patch)
+    .eq('id', params.id)
+    .is('deleted_at', null)
+    .select('id')
   if (error) {
     const duplicate = /duplicate key|unique/i.test(error.message)
     return NextResponse.json(
       { error: duplicate ? 'Esse número de matrícula já está em uso.' : 'Não foi possível atualizar o usuário.' },
       { status: duplicate ? 409 : 400 },
     )
+  }
+  if (!updated || updated.length === 0) {
+    return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 })
   }
 
   // Toggling activation must also (un)block the actual login.
@@ -86,6 +98,7 @@ export async function DELETE(
 ) {
   const gate = await requireAdmin()
   if (!gate.ok) return gate.response
+  if (!isUuid(params.id)) return invalidId()
 
   if (params.id === gate.userId) {
     return NextResponse.json({ error: 'Você não pode excluir a própria conta.' }, { status: 400 })

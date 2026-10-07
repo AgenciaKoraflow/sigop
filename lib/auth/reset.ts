@@ -2,6 +2,7 @@ import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isSameOriginRequest } from '@/lib/api/request-guards'
 import { RESET_CODE_LENGTH } from '@/lib/auth/password'
 
 /**
@@ -31,14 +32,7 @@ export function jsonNoStore(body: unknown, status = 200) {
 
 /** Rejects cross-site browser requests (CSRF defence in depth). */
 export function isSameOrigin(request: Request): boolean {
-  const origin = request.headers.get('origin')
-  if (!origin) return true // non-browser caller; auth still enforced per route
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
-  try {
-    return new URL(origin).host === host
-  } catch {
-    return false
-  }
+  return isSameOriginRequest(request.headers)
 }
 
 function secret(): string {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { adminUnavailable, serverError } from '@/lib/api/errors'
+import { adminUnavailable, invalidId, serverError } from '@/lib/api/errors'
+import { isUuid } from '@/lib/api/request-guards'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { MUST_CHANGE_PASSWORD_FLAG } from '@/lib/auth/password'
@@ -22,6 +23,7 @@ export async function POST(
 ) {
   const gate = await requireAdmin()
   if (!gate.ok) return gate.response
+  if (!isUuid(params.id)) return invalidId()
 
   const json = await request.json().catch(() => null)
   const parsed = passwordChangeSchema.safeParse(json ?? {})

@@ -1,6 +1,7 @@
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { isSameOriginRequest } from '@/lib/api/request-guards'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -17,19 +18,10 @@ export type AdminGate =
 
 export async function requireAdmin(): Promise<AdminGate> {
   // CSRF defence in depth: a browser request from another site is refused.
-  const h = headers()
-  const origin = h.get('origin')
-  const host = h.get('x-forwarded-host') ?? h.get('host')
-  if (origin) {
-    let sameOrigin = false
-    try {
-      sameOrigin = new URL(origin).host === host
-    } catch {}
-    if (!sameOrigin) {
-      return {
-        ok: false,
-        response: NextResponse.json({ error: 'Requisição inválida.' }, { status: 403 }),
-      }
+  if (!isSameOriginRequest(headers())) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Requisição inválida.' }, { status: 403 }),
     }
   }
 

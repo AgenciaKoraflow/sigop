@@ -11,6 +11,11 @@ export function serverError(context: string, error: unknown, status = 500, messa
   return NextResponse.json({ error: message }, { status })
 }
 
+/** A path id that is not a UUID never reaches the database. */
+export function invalidId() {
+  return NextResponse.json({ error: 'Identificador inválido.' }, { status: 400 })
+}
+
 /** The service-role client could not be built (missing server config). */
 export function adminUnavailable(error: unknown) {
   return serverError('admin client unavailable', error, 503, 'Serviço indisponível no momento.')

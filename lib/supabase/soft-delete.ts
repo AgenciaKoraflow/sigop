@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { adminUnavailable, serverError } from '@/lib/api/errors'
+import { adminUnavailable, invalidId, serverError } from '@/lib/api/errors'
+import { isUuid } from '@/lib/api/request-guards'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/usuarios/guard'
@@ -22,6 +23,7 @@ export async function softDeleteRecord(
 ): Promise<NextResponse> {
   const gate = await requireAdmin()
   if (!gate.ok) return gate.response
+  if (!isUuid(id)) return invalidId()
 
   let admin
   try {
