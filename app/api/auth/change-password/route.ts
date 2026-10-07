@@ -13,7 +13,7 @@ import { PASSWORD_AUDIT_ENTITY } from '@/lib/usuarios/form'
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) return jsonNoStore({ error: 'Requisição inválida.' }, 403)
 
-  const supabase = createClient()
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

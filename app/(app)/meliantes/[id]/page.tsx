@@ -51,8 +51,8 @@ function fmtAddress(
   return line || null
 }
 
-export default function OffenderDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params
+export default function OffenderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params)
   const router = useRouter()
   const { toast } = useToast()
   const perms = usePermissions()

@@ -18,14 +18,14 @@ export type AdminGate =
 
 export async function requireAdmin(): Promise<AdminGate> {
   // CSRF defence in depth: a browser request from another site is refused.
-  if (!isSameOriginRequest(headers())) {
+  if (!isSameOriginRequest(await headers())) {
     return {
       ok: false,
       response: NextResponse.json({ error: 'Requisição inválida.' }, { status: 403 }),
     }
   }
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const {
     data: { user },

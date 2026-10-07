@@ -1,5 +1,10 @@
 import { DetalheOcorrencia } from '@/components/ocorrencias/DetalheOcorrencia'
 
-export default function IncidentDetailPage({ params }: { params: { id: string } }) {
-  return <DetalheOcorrencia incidentId={params.id} />
+export default async function IncidentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  return <DetalheOcorrencia incidentId={id} />
 }

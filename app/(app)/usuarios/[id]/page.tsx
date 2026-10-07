@@ -5,16 +5,18 @@ export const metadata = {
   title: 'Usuário · SIGOP',
 }
 
-export default function UsuarioDetalhePage({
+export default async function UsuarioDetalhePage({
   params,
   searchParams,
 }: {
-  params: { id: string }
-  searchParams: { editar?: string }
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ editar?: string }>
 }) {
+  const { id } = await params
+  const { editar } = await searchParams
   return (
     <ProtectedRoute roles={['administrator']}>
-      <DetalheUsuario id={params.id} startEditing={searchParams.editar === '1'} />
+      <DetalheUsuario id={id} startEditing={editar === '1'} />
     </ProtectedRoute>
   )
 }

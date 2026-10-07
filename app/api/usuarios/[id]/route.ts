@@ -12,8 +12,9 @@ const BAN_DURATION = '876000h'
 /** PATCH /api/usuarios/[id] — update an existing user's profile / activation. */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  ctx: { params: Promise<{ id: string }> },
 ) {
+  const params = await ctx.params
   const gate = await requireAdmin()
   if (!gate.ok) return gate.response
   if (!isUuid(params.id)) return invalidId()
@@ -94,8 +95,9 @@ export async function PATCH(
 /** DELETE /api/usuarios/[id] — remove a user for good. */
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } },
+  ctx: { params: Promise<{ id: string }> },
 ) {
+  const params = await ctx.params
   const gate = await requireAdmin()
   if (!gate.ok) return gate.response
   if (!isUuid(params.id)) return invalidId()
