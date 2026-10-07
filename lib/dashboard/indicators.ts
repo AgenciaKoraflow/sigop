@@ -9,6 +9,7 @@ import {
   startOfYear,
 } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
+import { csvCell, csvRow } from '@/lib/export/csv'
 import { INCIDENT_TYPE_LABELS } from '@/lib/dashboard/labels'
 import { buildMockIndicators } from './indicators-mock'
 
@@ -451,17 +452,8 @@ const GEO_SECTIONS: { key: GeoDimension; title: string; header: string }[] = [
   { key: 'territorialArea', title: 'Ocorrências por AT', header: 'AT' },
 ]
 
-function csvCell(value: unknown): string {
-  const text = value === null || value === undefined ? '' : String(value)
-  return /[";\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
-}
-
 function csvSection(title: string, header: string[], rows: unknown[][]): string {
-  return [
-    title,
-    header.join(';'),
-    ...rows.map((row) => row.map(csvCell).join(';')),
-  ].join('\n')
+  return [csvCell(title), csvRow(header), ...rows.map(csvRow)].join('\n')
 }
 
 const csvDateTime = (iso: string | null) =>
@@ -570,9 +562,11 @@ export function buildIndicatorsCsv(
   )
 
   return [
-    `Painel operacional SIGOP;Período: ${periodLabel(filters)};Gerado em: ${new Date(
-      data.generatedAt,
-    ).toLocaleString('pt-BR')}`,
+    csvRow([
+      'Painel operacional SIGOP',
+      `Período: ${periodLabel(filters)}`,
+      `Gerado em: ${new Date(data.generatedAt).toLocaleString('pt-BR')}`,
+    ]),
     '',
     sections.join('\n\n'),
     '',
