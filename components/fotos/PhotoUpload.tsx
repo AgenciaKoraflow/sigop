@@ -255,8 +255,9 @@ export function PhotoUpload({
   const handleFiles = React.useCallback(
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return
+      // Cheap pre-filter only; real content validation happens in compressImage.
       const images = Array.from(fileList).filter((file) =>
-        file.type.startsWith('image/'),
+        file.type.startsWith('image/') && file.type !== 'image/svg+xml',
       )
       const slotsLeft = maxPhotos - itemsRef.current.length
 

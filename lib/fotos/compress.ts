@@ -9,6 +9,8 @@
  * user-facing error messages stay in Portuguese.
  */
 
+import { validatePhotoFile } from './validate'
+
 export interface CompressionOptions {
   /** Maximum output width in pixels. Default: 1200. */
   maxWidth?: number
@@ -49,6 +51,11 @@ export async function compressImage(
     quality = DEFAULTS.quality,
     maxSizeMB = DEFAULTS.maxSizeMB,
   } = options
+
+  // Trust the bytes, not the declared MIME/name: this is the single gate every
+  // upload path goes through before anything is re-encoded and stored.
+  const validation = await validatePhotoFile(file)
+  if (!validation.ok) throw new Error(validation.reason)
 
   const maxBytes = maxSizeMB * 1024 * 1024
   const image = await loadImageElement(file)

@@ -41,12 +41,29 @@ export function safeGoogleMapsUrl(input: string | null | undefined): string | nu
   return url.href
 }
 
+/** Host of the project's Supabase instance (the only origin images may load from). */
+function supabaseHost(): string | null {
+  try {
+    const raw = process.env.NEXT_PUBLIC_SUPABASE_URL
+    return raw ? new URL(raw).host.toLowerCase() : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Returns a value safe for `<img src>` coming from a legacy free-text column:
- * an `https:` URL, or `null`. Storage paths are NOT accepted here — they must
- * be exchanged for signed URLs (`lib/fotos/urls.ts`) before reaching the DOM.
+ * an `https:` URL on the project's own Supabase host, or `null`. Arbitrary
+ * hosts are refused so a stored value can neither beacon a viewer's IP to a
+ * third party nor make the browser fetch an attacker-chosen (or internal) URL
+ * when building reports. Storage paths are NOT accepted here — they must be
+ * exchanged for signed URLs (`lib/fotos/urls.ts`) before reaching the DOM.
  */
-export function safeImageUrl(input: string | null | undefined): string | null {
+export function safeImageUrl(
+  input: string | null | undefined,
+  allowedHost: string | null = supabaseHost(),
+): string | null {
   const url = parseHttpsUrl(input)
-  return url ? url.href : null
+  if (!url || !allowedHost) return null
+  return url.host.toLowerCase() === allowedHost.toLowerCase() ? url.href : null
 }
