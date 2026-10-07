@@ -53,10 +53,21 @@ export async function middleware(request: NextRequest) {
   // authenticated user hitting /login is sent back to the app root.
   // API routes are left alone — their handlers do their own auth and must be
   // able to answer with a JSON 401/403 instead of an HTML redirect.
-  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/api')) {
+  const isPublic = pathname.startsWith('/login') || pathname.startsWith('/esqueci-senha')
+  if (!user && !isPublic && !pathname.startsWith('/api')) {
     return redirectTo('/login')
   }
-  if (user && pathname === '/login') {
+
+  // First-login gate: a user flagged by the server (app_metadata is only
+  // writable with the service role) can reach nothing but the change page.
+  const mustChange = user?.app_metadata?.must_change_password === true
+  if (user && mustChange && pathname !== '/trocar-senha' && !pathname.startsWith('/api')) {
+    return redirectTo('/trocar-senha')
+  }
+  if (user && !mustChange && pathname === '/trocar-senha') {
+    return redirectTo('/')
+  }
+  if (user && (pathname === '/login' || pathname.startsWith('/esqueci-senha'))) {
     return redirectTo('/')
   }
 

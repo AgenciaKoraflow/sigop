@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { MUST_CHANGE_PASSWORD_FLAG } from '@/lib/auth/password'
 import { requireAdmin } from '@/lib/usuarios/guard'
 import {
   PASSWORD_AUDIT_ENTITY,
@@ -41,7 +42,10 @@ export async function POST(
     )
   }
 
-  const { error } = await admin.auth.admin.updateUserById(params.id, { password })
+  const { error } = await admin.auth.admin.updateUserById(params.id, {
+    password,
+    app_metadata: { [MUST_CHANGE_PASSWORD_FLAG]: true },
+  })
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }

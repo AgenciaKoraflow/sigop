@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { MUST_CHANGE_PASSWORD_FLAG } from '@/lib/auth/password'
 import { requireAdmin } from '@/lib/usuarios/guard'
 import { nullIfEmpty, userCreateSchema } from '@/lib/usuarios/form'
 
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
     email,
     password,
     email_confirm: true,
+    app_metadata: { [MUST_CHANGE_PASSWORD_FLAG]: true },
     user_metadata: { full_name, role },
   })
 

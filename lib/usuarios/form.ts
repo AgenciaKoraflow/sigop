@@ -1,5 +1,9 @@
 import { z } from 'zod'
 import type { UserRole } from '@/types/app.types'
+import { generateProvisionalPassword } from '@/lib/auth/password'
+
+// Provisional password is `sigop@<current year>` (see lib/auth/password.ts).
+export { generateProvisionalPassword }
 
 /**
  * Shared schema, constants and helpers for the user-management form
@@ -94,7 +98,7 @@ export type UserEditValues = z.infer<typeof userEditSchema>
 export const emptyUserCreateForm = (): UserCreateValues => ({
   full_name: '',
   email: '',
-  password: '',
+  password: generateProvisionalPassword(),
   role: 'agent',
   badge_number: '',
   unit_id: '',
@@ -103,20 +107,6 @@ export const emptyUserCreateForm = (): UserCreateValues => ({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-/** Readable provisional password: two blocks + digits, no ambiguous chars. */
-export function generateProvisionalPassword(): string {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz'
-  const digits = '23456789'
-  const pick = (source: string, count: number) => {
-    let out = ''
-    const values = new Uint32Array(count)
-    crypto.getRandomValues(values)
-    for (let i = 0; i < count; i += 1) out += source[values[i] % source.length]
-    return out
-  }
-  return `${pick(alphabet, 4)}-${pick(alphabet, 4)}-${pick(digits, 3)}`
-}
-
 /** `'' -> null`, trimmed otherwise. */
 export function nullIfEmpty(value: string | undefined | null): string | null {
   const trimmed = (value ?? '').trim()

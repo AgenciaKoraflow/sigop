@@ -136,7 +136,7 @@ function CreateForm({
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-ink">Novo usuário</h1>
         <p className="text-sm text-ink-secondary">
-          O usuário entra com o e-mail e a senha provisória abaixo e pode trocá-la depois.
+          O usuário entra com o e-mail e a senha provisória abaixo e será obrigado a criar uma nova senha no primeiro acesso.
         </p>
       </header>
 
@@ -204,7 +204,7 @@ function CreateForm({
           <DialogHeader>
             <DialogTitle>Usuário criado</DialogTitle>
             <DialogDescription id="created-user">
-              Anote e repasse a senha provisória — ela não será exibida de novo.
+              Repasse a senha provisória ao usuário (ele deverá trocá-la no primeiro login). Ela não será exibida de novo.
             </DialogDescription>
           </DialogHeader>
           {created && (
