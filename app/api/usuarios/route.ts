@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { MUST_CHANGE_PASSWORD_FLAG } from '@/lib/auth/password'
 import { requireAdmin } from '@/lib/usuarios/guard'
 import { nullIfEmpty, userCreateSchema } from '@/lib/usuarios/form'
+import { buildProvisionedUserAttributes, generateProvisionToken, sha256Hex } from '@/lib/usuarios/provision'
 
 /** POST /api/usuarios — create a login user with a provisional password. */
 export async function POST(request: Request) {
@@ -28,15 +29,38 @@ export async function POST(request: Request) {
     return adminUnavailable(err)
   }
 
+  // The database refuses any auth.users insert without a single-use ticket
+  // (sql/026), and takes the profile role from the ticket — never from metadata.
+  const db = admin as unknown as SupabaseClient
+  const token = generateProvisionToken()
+  const tokenHash = `\\x${await sha256Hex(token)}`
+  const { error: ticketError } = await db.from('user_provisioning_tickets').insert({
+    token_hash: tokenHash,
+    email,
+    role,
+    created_by: gate.userId,
+  })
+  if (ticketError) {
+    console.error('[usuarios] provisioning ticket failed:', ticketError.message)
+    return NextResponse.json(
+      { error: 'Falha ao autorizar a criação do usuário. Verifique se a migration 026 foi aplicada.' },
+      { status: 500 },
+    )
+  }
+
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    app_metadata: { [MUST_CHANGE_PASSWORD_FLAG]: true },
-    user_metadata: { full_name, role },
+    ...buildProvisionedUserAttributes({
+      fullName: full_name,
+      token,
+      mustChangePasswordFlag: MUST_CHANGE_PASSWORD_FLAG,
+    }),
   })
 
   if (error || !data.user) {
+    await db.from('user_provisioning_tickets').delete().eq('token_hash', tokenHash)
     const duplicate =
       error?.code === 'email_exists' ||
       /already been registered|already exists/i.test(error?.message ?? '')
@@ -55,9 +79,15 @@ export async function POST(request: Request) {
     )
   }
 
+  // GoTrue rewrites the row after the insert, which re-persists the (already
+  // consumed, so harmless) token the trigger had stripped. Drop it for hygiene.
+  const { error: scrubError } = await admin.auth.admin.updateUserById(data.user.id, {
+    user_metadata: { full_name },
+  })
+  if (scrubError) console.error('[usuarios] could not scrub provision token:', scrubError.message)
+
   // The `handle_new_user` trigger already created the profile row (id, name,
   // role, email). Fill in the columns it does not cover.
-  const db = admin as unknown as SupabaseClient
   const { error: profileError } = await db
     .from('profiles')
     .update({

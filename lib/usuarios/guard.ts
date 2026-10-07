@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isSameOriginRequest } from '@/lib/api/request-guards'
 import { createClient } from '@/lib/supabase/server'
+import { evaluateAdminAccess } from '@/lib/usuarios/access'
 
 /**
  * Shared authorization gate for the admin-only Route Handlers.
@@ -38,9 +39,17 @@ export async function requireAdmin(): Promise<AdminGate> {
     }
   }
 
-  // A user still on the provisional password must change it first — the
-  // middleware does not cover /api, so the gate has to live here.
-  if (user.app_metadata?.must_change_password === true) {
+  // The profile is re-checked on every call: a deactivated / deleted admin keeps
+  // a valid JWT until it expires.
+  const { data: profile } = await (supabase as unknown as SupabaseClient)
+    .from('profiles')
+    .select('role, is_active, deleted_at')
+    .eq('id', user.id)
+    .single<{ role: string; is_active: boolean | null; deleted_at: string | null }>()
+
+  const denial = evaluateAdminAccess(user, profile)
+  if (denial === 'must_change_password') {
+    // The middleware does not cover /api, so the first-login gate lives here.
     return {
       ok: false,
       response: NextResponse.json(
@@ -49,20 +58,7 @@ export async function requireAdmin(): Promise<AdminGate> {
       ),
     }
   }
-
-  const { data: profile } = await (supabase as unknown as SupabaseClient)
-    .from('profiles')
-    .select('role, is_active, deleted_at')
-    .eq('id', user.id)
-    .single<{ role: string; is_active: boolean | null; deleted_at: string | null }>()
-
-  // A deactivated / deleted admin keeps a valid JWT until it expires, so the
-  // profile state is re-checked on every call.
-  if (
-    profile?.role !== 'administrator' ||
-    profile.is_active === false ||
-    profile.deleted_at !== null
-  ) {
+  if (denial) {
     return {
       ok: false,
       response: NextResponse.json(
