@@ -3,6 +3,7 @@ import { endOfDay, parseISO, startOfDay } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { compressImage, type CompressionOptions } from '@/lib/fotos/compress'
 import { signPhotoUrls } from '@/lib/fotos/urls'
+import { safeImageUrl } from '@/lib/utils/safe-url'
 import { offenderRoleLabel } from '@/lib/ocorrencias/form'
 import {
   getContractorNameForTerritorialArea,
@@ -431,12 +432,7 @@ async function buildIncidentReport(
         const id = String(raw.id)
 
         const path = offenderPhotoPath.get(id)
-        const directUrl = clean(raw.main_photo_url)
-        const url = path
-          ? signed.get(path)
-          : directUrl && /^https?:/i.test(directUrl)
-            ? directUrl
-            : null
+        const url = path ? signed.get(path) : safeImageUrl(clean(raw.main_photo_url))
 
         const traits: [string, string][] = []
         const push = (label: string, value: string | null) => {

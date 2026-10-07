@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale'
 import { ArrowLeft, FileText, Loader2, MapPin, Pencil, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { safeImageUrl } from '@/lib/utils/safe-url'
 import { initials } from '@/hooks/use-current-user'
 import { usePermissions } from '@/hooks/use-permissions'
 import { useToast } from '@/hooks/use-toast'
@@ -139,7 +140,7 @@ export default function OffenderDetailPage({ params }: { params: { id: string } 
   const { offender, incidents, photos } = detail
   const name = offenderDisplayName(offender)
   const mainPhoto = photos.find((photo) => (photo.sortOrder ?? 0) === 0) ?? photos[0]
-  const mainPhotoUrl = mainPhoto?.url ?? offender.main_photo_url ?? null
+  const mainPhotoUrl = mainPhoto?.url ?? safeImageUrl(offender.main_photo_url)
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-12">

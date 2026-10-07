@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { safeGoogleMapsUrl } from '@/lib/utils/safe-url'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser, initials } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
@@ -398,7 +399,9 @@ export function FormOcorrencia({ mode, incidentId, initialType }: FormOcorrencia
     setGeocodeError(null)
     setValue('latitude', Number(coords.lat.toFixed(7)), { shouldDirty: true })
     setValue('longitude', Number(coords.lng.toFixed(7)), { shouldDirty: true })
-    setValue('gmaps_link', gmapsInput.trim(), { shouldDirty: true })
+    // Raw coordinates are fine for extraction, but only a vetted https Google
+    // link is stored — it later becomes an <a href>.
+    setValue('gmaps_link', safeGoogleMapsUrl(gmapsInput) ?? '', { shouldDirty: true })
 
     setGeocodeLoading(true)
     try {

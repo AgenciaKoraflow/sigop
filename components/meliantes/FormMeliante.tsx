@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { AlertCircle, Camera, ImagePlus, Loader2, Save, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
+import { safeImageUrl } from '@/lib/utils/safe-url'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser, initials } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
@@ -103,7 +104,7 @@ export function FormMeliante({
           const remoteMain =
             detail.photos.find((photo) => (photo.sortOrder ?? 0) === 0) ?? detail.photos[0]
           if (remoteMain) mainPhotoIdRef.current = remoteMain.id
-          setMainPhotoRemoteUrl(remoteMain?.url ?? detail.offender.main_photo_url ?? null)
+          setMainPhotoRemoteUrl(remoteMain?.url ?? safeImageUrl(detail.offender.main_photo_url))
         }
       } catch {
         if (!cancelled) setLoadError(true)

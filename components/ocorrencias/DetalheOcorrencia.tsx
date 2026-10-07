@@ -40,6 +40,7 @@ import { loadOffenderPhotoUrls } from '@/lib/meliantes/data'
 import { BuscaMeliante } from '@/components/meliantes/BuscaMeliante'
 import { FormOcorrencia } from '@/components/ocorrencias/FormOcorrencia'
 import { ExportarRelatorioButton } from '@/components/ocorrencias/relatorio/ExportarRelatorioButton'
+import { safeGoogleMapsUrl } from '@/lib/utils/safe-url'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -528,6 +529,8 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
   const { incident, offenders, photos, audit } = data
   const internalNumber = incident.internal_number ?? `OC-${shortId(incident.id)}`
   const hasCoords = incident.latitude != null && incident.longitude != null
+  // Stored value is user-controlled: re-validate at the sink (legacy rows).
+  const safeMapsHref = safeGoogleMapsUrl(incident.gmaps_link)
 
   const addressLine = [
     incident.address_street,
@@ -631,9 +634,9 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
             </>
           )}
 
-          {incident.gmaps_link && (
+          {safeMapsHref && (
             <a
-              href={incident.gmaps_link}
+              href={safeMapsHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-sm font-medium text-brand transition-colors hover:underline"
@@ -643,7 +646,7 @@ export function DetalheOcorrencia({ incidentId: id }: DetalheOcorrenciaProps) {
             </a>
           )}
 
-          {!hasCoords && !incident.gmaps_link && !addressLine && (
+          {!hasCoords && !safeMapsHref && !addressLine && (
             <p className="text-sm text-ink-muted">Nenhuma informação de localização.</p>
           )}
         </div>

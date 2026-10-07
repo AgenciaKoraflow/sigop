@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { IncidentType } from '@/types/app.types'
+import { safeGoogleMapsUrl } from '@/lib/utils/safe-url'
 
 /**
  * Shared schema, constants and helpers for the incident form
@@ -73,7 +74,9 @@ export const incidentFormSchema = z
     address_district: optionalText,
     address_city: optionalText,
     address_state: optionalText,
-    gmaps_link: optionalText,
+    gmaps_link: optionalText.refine((value) => !value || safeGoogleMapsUrl(value) !== null, {
+      message: 'Informe um link https do Google Maps válido',
+    }),
     latitude: z.number().nullable(),
     longitude: z.number().nullable(),
     /** Operational geography — both optional. AT belongs to the município. */
@@ -174,7 +177,7 @@ export function toIncidentPayload(
     address_zip: nullIfEmpty(values.address_zip),
     latitude: values.latitude,
     longitude: values.longitude,
-    gmaps_link: nullIfEmpty(values.gmaps_link),
+    gmaps_link: safeGoogleMapsUrl(values.gmaps_link),
     municipality_id: nullIfEmpty(values.municipality_id),
     territorial_area_id: nullIfEmpty(values.territorial_area_id),
     ...(createdBy ? { created_by: createdBy } : {}),
@@ -202,7 +205,7 @@ export function fromIncidentPayload(payload: Record<string, unknown>): IncidentF
     address_district: str('address_district'),
     address_city: str('address_city'),
     address_state: str('address_state'),
-    gmaps_link: str('gmaps_link'),
+    gmaps_link: safeGoogleMapsUrl(str('gmaps_link')) ?? '',
     latitude: num('latitude'),
     longitude: num('longitude'),
     municipality_id: str('municipality_id'),

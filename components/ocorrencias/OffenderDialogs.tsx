@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/cn'
+import { safeImageUrl } from '@/lib/utils/safe-url'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -149,7 +150,7 @@ export function LinkOffenderDialog({
                     offenderId: offender.id,
                     fullName: name,
                     nickname: offender.nickname,
-                    photoUrl: offender.main_photo_url,
+                    photoUrl: safeImageUrl(offender.main_photo_url),
                     isNew: false,
                   })
                   onOpenChange(false)
@@ -160,7 +161,9 @@ export function LinkOffenderDialog({
                 )}
               >
                 <Avatar className="h-9 w-9">
-                  {offender.main_photo_url && <AvatarImage src={offender.main_photo_url} alt={name} />}
+                  {safeImageUrl(offender.main_photo_url) && (
+                    <AvatarImage src={safeImageUrl(offender.main_photo_url) as string} alt={name} />
+                  )}
                   <AvatarFallback>{initials(name)}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
