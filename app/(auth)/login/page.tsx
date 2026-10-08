@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+// import Link from 'next/link' // reativar junto com o link "Esqueci minha senha"
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -238,11 +238,13 @@ export default function LoginPage() {
               Manter conectado
             </label>
 
+            {/* "Esqueci minha senha" oculto até configurar o Resend (RESEND_API_KEY / RESEND_FROM).
             <div className="text-right">
               <Link href="/esqueci-senha" className="text-sm font-medium text-brand hover:underline">
                 Esqueci minha senha
               </Link>
             </div>
+            */}
 
             {/* Auth error */}
             {authError && (
