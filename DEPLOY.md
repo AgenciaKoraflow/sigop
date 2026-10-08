@@ -77,3 +77,10 @@ Não existe rollback automático: migrations são SQL direto contra produção. 
 - **Chave comprometida**: se a `SUPABASE_SERVICE_ROLE_KEY` vazar, gere uma nova em Supabase > Project Settings > API > "Roll" e atualize a env var na Vercel + redeploy imediatamente — essa chave dá acesso total ao banco, ignorando RLS.
 - **Fora do ar**: confira primeiro `vercel logs <url>` e Supabase > Logs (a MCP tool `query_logs` também serve para isso) antes de reverter — muitas vezes é env var faltando ou uma RLS policy nova bloqueando uma rota.
 - **Trava de sync offline**: dados pendentes ficam em IndexedDB no dispositivo do usuário (ver `/pendentes`); um usuário travado pode limpar em "Sair mesmo assim" (perde o que não sincronizou) — não é recuperável pelo backend.
+
+## Higiene de segredos
+
+- **Nunca** colocar PAT (`sbp_…`), `service_role`, chaves Resend etc. em arquivos do repositório. Variáveis de runtime ficam no painel da Vercel; as de desenvolvimento em `.env.local`.
+- `.mcp.json` só referencia variáveis de ambiente (`${SUPABASE_ACCESS_TOKEN}`, `${SUPABASE_PROJECT_REF}`) — defina-as no ambiente do shell/WSL (ex.: `~/.profile`), nunca no arquivo.
+- Com `.vercelignore` presente, a Vercel CLI **ignora o `.gitignore`**. Todo arquivo sensível (`.env*`, `.mcp.json`, `.claude/`, `.vercel/`) precisa estar listado no `.vercelignore`.
+- Se um token vazar: revogar em supabase.com/dashboard/account/tokens (PAT) ou "Roll" em Project Settings > API (service_role), atualizar as envs na Vercel e redeployar.

@@ -1,3 +1,29 @@
-.env.local
+# Com .vercelignore presente, a Vercel CLI NÃO usa o .gitignore — tudo que
+# não estiver aqui é enviado no upload. Mantenha segredos/arquivos locais aqui.
+
+# Segredos e variáveis de ambiente (use as env vars do painel da Vercel)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Configuração local de ferramentas/agentes (pode conter tokens)
+.mcp.json
+.mcp.*.json
+.claude
+.agents
+.cursor
+.vscode
+.idea
+
+# Metadados locais da Vercel
+.vercel
+
+# Git e artefatos locais
+.git
 node_modules
 .next
+*.tsbuildinfo
+*.log
+.DS_Store
