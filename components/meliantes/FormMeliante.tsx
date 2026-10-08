@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCurrentUser, initials } from '@/hooks/use-current-user'
 import { useToast } from '@/hooks/use-toast'
 import { compressImage, createPreviewURL, revokePreviewURL } from '@/lib/fotos/compress'
+import { uploadPhoto } from '@/lib/fotos/upload'
 import { PHOTO_BUCKET } from '@/lib/fotos/urls'
 import { getOffenderDetail } from '@/lib/meliantes/data'
 import {
@@ -136,30 +137,14 @@ export function FormMeliante({
     setMainPhotoBusy(true)
     try {
       const blob = await compressImage(file)
-      const supabase = untyped()
-      const objectPath = `${user.id}/offender/${id}/${mainPhotoIdRef.current}.jpg`
-
-      const { error: uploadError } = await supabase.storage
-        .from(PHOTO_BUCKET)
-        .upload(objectPath, blob, { contentType: blob.type || 'image/jpeg', upsert: true })
-      if (uploadError) throw new Error(uploadError.message)
-
-      const { error: dbError } = await supabase.from('photos').upsert(
-        {
-          id: mainPhotoIdRef.current,
-          storage_path: objectPath,
-          public_url: null,
-          entity_type: 'offender',
-          entity_id: id,
-          description: MAIN_PHOTO_DESCRIPTION,
-          sort_order: 0,
-          size_bytes: blob.size,
-          mime_type: blob.type || 'image/jpeg',
-          created_by: user.id,
-        },
-        { onConflict: 'id' },
-      )
-      if (dbError) throw new Error(dbError.message)
+      await uploadPhoto({
+        blob,
+        photoId: mainPhotoIdRef.current,
+        entityType: 'offender',
+        entityId: id,
+        description: MAIN_PHOTO_DESCRIPTION,
+        sortOrder: 0,
+      })
 
       setMainPhotoPreview((prev) => {
         if (prev) revokePreviewURL(prev)

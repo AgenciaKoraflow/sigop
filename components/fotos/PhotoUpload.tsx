@@ -19,6 +19,7 @@ import {
   revokePreviewURL,
 } from '@/lib/fotos/compress'
 import { PHOTO_BUCKET, signPhotoUrls } from '@/lib/fotos/urls'
+import { uploadPhoto } from '@/lib/fotos/upload'
 
 export type PhotoEntityType = 'incident' | 'offender'
 
@@ -200,30 +201,14 @@ export function PhotoUpload({
           ),
         )
 
-        const objectPath = objectPathFor(user.id, entityType, entityId, id)
-        const supabase = untyped()
-
-        const { error: uploadError } = await supabase.storage
-          .from(PHOTO_BUCKET)
-          .upload(objectPath, blob, { contentType: blob.type || 'image/jpeg', upsert: true })
-        if (uploadError) throw new Error(uploadError.message)
-
-        const { error: dbError } = await supabase.from('photos').upsert(
-          {
-            id,
-            storage_path: objectPath,
-            public_url: null,
-            entity_type: entityType,
-            entity_id: entityId,
-            description: '',
-            sort_order: position,
-            size_bytes: blob.size,
-            mime_type: blob.type || 'image/jpeg',
-            created_by: user.id,
-          },
-          { onConflict: 'id' },
-        )
-        if (dbError) throw new Error(dbError.message)
+        // Content is validated server-side; the path is derived from the session.
+        const objectPath = await uploadPhoto({
+          blob,
+          photoId: id,
+          entityType,
+          entityId,
+          sortOrder: position,
+        })
 
         setItems((prev) =>
           prev.map((item) =>
