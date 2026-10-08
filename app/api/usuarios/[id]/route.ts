@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/usuarios/guard'
 import { userEditSchema, nullIfEmpty } from '@/lib/usuarios/form'
+import { LAST_ADMIN_MESSAGE, isLastAdminViolation } from '@/lib/usuarios/last-admin'
 
 /** ~100 years — long enough to be a permanent login block until reverted. */
 const BAN_DURATION = '876000h'
@@ -62,6 +63,10 @@ export async function PATCH(
     .is('deleted_at', null)
     .select('id')
   if (error) {
+    // Enforced by the database (sql/030) so concurrent requests cannot both pass.
+    if (isLastAdminViolation(error)) {
+      return NextResponse.json({ error: LAST_ADMIN_MESSAGE }, { status: 409 })
+    }
     const duplicate = /duplicate key|unique/i.test(error.message)
     return NextResponse.json(
       { error: duplicate ? 'Esse número de matrícula já está em uso.' : 'Não foi possível atualizar o usuário.' },
@@ -130,6 +135,11 @@ export async function DELETE(
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', params.id)
   if (markError) {
+    // The hard delete above was refused for the same reason when this is the
+    // last active administrator (the profile cascade hits the DB guard).
+    if (isLastAdminViolation(markError)) {
+      return NextResponse.json({ error: LAST_ADMIN_MESSAGE }, { status: 409 })
+    }
     const missingColumn = /deleted_at/i.test(markError.message)
     return NextResponse.json(
       {
