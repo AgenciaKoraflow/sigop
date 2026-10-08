@@ -17,7 +17,6 @@ import { requireAdmin } from '@/lib/usuarios/guard'
  */
 export async function softDeleteRecord(
   table: 'incidents' | 'offenders',
-  entityType: 'incident' | 'offender',
   id: string,
   notFoundMessage: string,
 ): Promise<NextResponse> {
@@ -46,13 +45,7 @@ export async function softDeleteRecord(
     return NextResponse.json({ error: notFoundMessage }, { status: 404 })
   }
 
-  // Best effort — the record is already gone from the app at this point.
-  await db.from('audit_log').insert({
-    entity_type: entityType,
-    entity_id: id,
-    operation: 'delete',
-    performed_by: gate.userId,
-  })
-
+  // The 'delete' audit entry is written by the database trigger (sql/029) from
+  // this very UPDATE, attributed to `updated_by` above.
   return NextResponse.json({ id })
 }

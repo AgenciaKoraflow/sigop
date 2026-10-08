@@ -6,5 +6,5 @@ export async function DELETE(
   ctx: { params: Promise<{ id: string }> },
 ) {
   const params = await ctx.params
-  return softDeleteRecord('offenders', 'offender', params.id, 'Suspeito não encontrado.')
+  return softDeleteRecord('offenders', params.id, 'Suspeito não encontrado.')
 }
