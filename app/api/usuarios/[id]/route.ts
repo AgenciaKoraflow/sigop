@@ -54,6 +54,19 @@ export async function PATCH(
   if (parsed.data.unit_id !== undefined) patch.unit_id = nullIfEmpty(parsed.data.unit_id)
   if (parsed.data.is_active !== undefined) patch.is_active = parsed.data.is_active
 
+  // The edit form always sends the role, so only a real change counts as a
+  // privilege change (and revokes sessions below).
+  let roleChanged = false
+  if (parsed.data.role !== undefined) {
+    const { data: before } = await db
+      .from('profiles')
+      .select('role')
+      .eq('id', params.id)
+      .is('deleted_at', null)
+      .maybeSingle<{ role: string }>()
+    roleChanged = !!before && before.role !== parsed.data.role
+  }
+
   // Soft-deleted profiles are not editable (re-activating one would try to
   // un-ban an auth user that no longer exists).
   const { data: updated, error } = await db
@@ -92,7 +105,17 @@ export async function PATCH(
   }
 
   // A ban stops new logins/refreshes, but issued refresh tokens must die too.
-  if (parsed.data.is_active === false) await revokeUserSessions(admin, params.id)
+  // A privilege change likewise ends every session: the user signs in again and
+  // the new role is applied from a clean slate, on every device.
+  if (parsed.data.is_active === false || roleChanged) {
+    const revoked = await revokeUserSessions(admin, params.id)
+    if (!revoked) {
+      return NextResponse.json(
+        { error: 'Perfil atualizado, mas as sessões ativas do usuário não puderam ser encerradas.' },
+        { status: 500 },
+      )
+    }
+  }
 
   return NextResponse.json({ id: params.id })
 }

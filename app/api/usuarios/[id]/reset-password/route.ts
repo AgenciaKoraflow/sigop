@@ -52,7 +52,14 @@ export async function POST(
   }
 
   // Old sessions must not survive a password change.
-  await revokeUserSessions(admin, params.id)
+  const revoked = await revokeUserSessions(admin, params.id)
+  if (!revoked) {
+    // Never hand over a password while the old (possibly stolen) session lives.
+    return NextResponse.json(
+      { error: 'Senha alterada, mas as sessões antigas não puderam ser encerradas. Repita a operação.' },
+      { status: 500 },
+    )
+  }
 
   // Best effort — feeds the "trocas de senha" counter on the users dashboard.
   await (admin as unknown as SupabaseClient).from('audit_log').insert({
