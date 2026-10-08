@@ -103,6 +103,22 @@ export default function EsqueciSenhaPage() {
   )
   const spinner = loading && <Loader2 className="h-4 w-4 animate-spin" />
 
+  // Reset by e-mail needs Resend (RESEND_API_KEY / RESEND_FROM). Until it is configured the
+  // flow would claim to send a code that never arrives, so the page stays off. To re-enable:
+  // set NEXT_PUBLIC_PASSWORD_RESET_ENABLED=true, redeploy and restore the login link.
+  if (process.env.NEXT_PUBLIC_PASSWORD_RESET_ENABLED !== 'true') {
+    return (
+      <AuthShell
+        title="Recuperação de senha"
+        subtitle="A recuperação por e-mail não está disponível no momento. Procure um administrador do SIGOP para redefinir sua senha."
+      >
+        <button type="button" className={authButtonClass} onClick={() => router.push('/login')}>
+          Voltar ao login
+        </button>
+      </AuthShell>
+    )
+  }
+
   if (step === 'done') {
     return (
       <AuthShell title="Senha alterada" subtitle="Sua senha foi redefinida com sucesso.">
