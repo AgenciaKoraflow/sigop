@@ -59,8 +59,10 @@ interface ProfileRow {
   units: { name: string | null } | { name: string | null }[] | null
 }
 
+// `units!profiles_unit_id_fkey` — sql/027 added a user↔units junction table, so a
+// bare `units(...)` embed is ambiguous (PostgREST answers 300, PGRST201).
 const SELECT_COLUMNS =
-  'id,full_name,email,role,is_active,badge_number,unit_id,created_at,units(name)'
+  'id,full_name,email,role,is_active,badge_number,unit_id,created_at,units!profiles_unit_id_fkey(name)'
 
 function unitName(units: ProfileRow['units']): string | null {
   if (!units) return null

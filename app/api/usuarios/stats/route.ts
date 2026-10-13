@@ -92,7 +92,7 @@ export async function GET(request: Request) {
     fetchAll<ProfileRow>((from, to) => {
       const query = db
         .from('profiles')
-        .select('id,full_name,email,role,is_active,created_at,units(name)')
+        .select('id,full_name,email,role,is_active,created_at,units!profiles_unit_id_fkey(name)')
       return (hideDeleted ? query.is('deleted_at', null) : query)
         .order('id', { ascending: true })
         .range(from, to)
