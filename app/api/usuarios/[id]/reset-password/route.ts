@@ -11,6 +11,7 @@ import {
   generateProvisionalPassword,
   passwordChangeSchema,
 } from '@/lib/usuarios/form'
+import { getSharedProvisionalPassword } from '@/lib/usuarios/shared-password'
 
 /**
  * POST /api/usuarios/[id]/reset-password
@@ -35,7 +36,8 @@ export async function POST(
       { status: 400 },
     )
   }
-  const password = parsed.data.password ?? generateProvisionalPassword()
+  const password =
+    parsed.data.password ?? getSharedProvisionalPassword() ?? generateProvisionalPassword()
 
   let admin
   try {

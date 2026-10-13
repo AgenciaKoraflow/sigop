@@ -21,8 +21,10 @@ import {
   type UnitOption,
   type UserListItem,
 } from '@/lib/usuarios/data'
+import { SHARED_PASSWORD_MODE } from '@/lib/usuarios/shared-password'
 import {
   USER_ROLE_OPTIONS,
+  buildAccessMessage,
   emptyUserCreateForm,
   generateProvisionalPassword,
   userCreateSchema,
@@ -86,9 +88,12 @@ function CreateForm({
   const router = useRouter()
   const { toast } = useToast()
   const [submitting, setSubmitting] = React.useState(false)
-  const [created, setCreated] = React.useState<{ id: string; email: string; password: string } | null>(
-    null,
-  )
+  const [created, setCreated] = React.useState<{
+    id: string
+    fullName: string
+    email: string
+    password: string
+  } | null>(null)
 
   const form = useForm<UserCreateValues>({
     resolver: zodResolver(userCreateSchema),
@@ -105,7 +110,7 @@ function CreateForm({
     async (values) => {
       setSubmitting(true)
       try {
-        const { id } = await createUser({
+        const { id, password } = await createUser({
           full_name: values.full_name,
           email: values.email,
           password: values.password,
@@ -113,7 +118,12 @@ function CreateForm({
           badge_number: values.badge_number || null,
           unit_id: values.unit_id || null,
         })
-        setCreated({ id, email: values.email, password: values.password })
+        setCreated({
+          id,
+          fullName: values.full_name,
+          email: values.email,
+          password: password ?? values.password,
+        })
       } catch (error) {
         toast({
           title: 'Não foi possível criar o usuário',
@@ -159,26 +169,32 @@ function CreateForm({
           </Field>
         </div>
 
-        <Field label="Senha provisória" required error={errors.password?.message}>
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              autoComplete="off"
-              placeholder="Mínimo de 8 caracteres"
-              {...register('password')}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setValue('password', generateProvisionalPassword(), { shouldValidate: true })
-              }
-            >
-              <RefreshCw className="h-4 w-4" />
-              Gerar
-            </Button>
-          </div>
-        </Field>
+        {SHARED_PASSWORD_MODE ? (
+          <p className="rounded-input border border-content-border bg-content-bg px-3 py-2 text-sm text-ink-secondary">
+            A senha provisória única será aplicada automaticamente e exibida ao concluir.
+          </p>
+        ) : (
+          <Field label="Senha provisória" required error={errors.password?.message}>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                autoComplete="off"
+                placeholder="Mínimo de 8 caracteres"
+                {...register('password')}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setValue('password', generateProvisionalPassword(), { shouldValidate: true })
+                }
+              >
+                <RefreshCw className="h-4 w-4" />
+                Gerar
+              </Button>
+            </div>
+          </Field>
+        )}
       </section>
 
       <Separator />
@@ -214,7 +230,11 @@ function CreateForm({
             <div className="space-y-3 text-sm">
               <CopyRow label="E-mail" value={created.email} />
               <CopyRow label="Senha provisória" value={created.password} mono />
-              <CopyAllButton email={created.email} password={created.password} />
+              <CopyAllButton
+                fullName={created.fullName}
+                email={created.email}
+                password={created.password}
+              />
             </div>
           )}
           <DialogFooter>
@@ -494,7 +514,15 @@ function StickyFooter({
   )
 }
 
-function CopyAllButton({ email, password }: { email: string; password: string }) {
+function CopyAllButton({
+  fullName,
+  email,
+  password,
+}: {
+  fullName: string
+  email: string
+  password: string
+}) {
   const [copied, setCopied] = React.useState(false)
   return (
     <Button
@@ -502,13 +530,15 @@ function CopyAllButton({ email, password }: { email: string; password: string })
       variant="outline"
       className="w-full"
       onClick={() => {
-        void navigator.clipboard?.writeText(`E-mail: ${email}\nSenha provisória: ${password}`)
+        void navigator.clipboard?.writeText(
+          buildAccessMessage({ fullName, email, password, appUrl: window.location.origin }),
+        )
         setCopied(true)
         setTimeout(() => setCopied(false), 1500)
       }}
     >
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-      {copied ? 'Copiado!' : 'Copiar e-mail e senha'}
+      {copied ? 'Copiado!' : 'Copiar acesso (link, usuário e senha)'}
     </Button>
   )
 }

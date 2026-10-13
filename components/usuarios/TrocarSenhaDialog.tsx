@@ -6,7 +6,12 @@ import { Check, Copy, Loader2, RefreshCw } from 'lucide-react'
 
 import { useToast } from '@/hooks/use-toast'
 import { resetUserPassword } from '@/lib/usuarios/data'
-import { USER_PASSWORD_MIN, generateProvisionalPassword } from '@/lib/usuarios/form'
+import { SHARED_PASSWORD_MODE } from '@/lib/usuarios/shared-password'
+import {
+  USER_PASSWORD_MIN,
+  buildAccessMessage,
+  generateProvisionalPassword,
+} from '@/lib/usuarios/form'
 import {
   Button,
   Dialog,
@@ -21,7 +26,7 @@ import {
 
 interface Props {
   /** User whose password is being changed; `null` keeps the dialog closed. */
-  user: { id: string; fullName: string } | null
+  user: { id: string; fullName: string; email: string | null } | null
   onClose: () => void
 }
 
@@ -45,13 +50,14 @@ export function TrocarSenhaDialog({ user, onClose }: Props) {
     setCopied(false)
   }, [userId])
 
-  const tooShort = password.length < USER_PASSWORD_MIN
+  const tooShort = !SHARED_PASSWORD_MODE && password.length < USER_PASSWORD_MIN
 
   async function handleSave() {
     if (!user || tooShort) return
     setBusy(true)
     try {
-      const result = await resetUserPassword(user.id, password)
+      // Shared-password mode: send nothing, the server applies the shared one.
+      const result = await resetUserPassword(user.id, SHARED_PASSWORD_MODE ? undefined : password)
       setSaved(result.password)
       void queryClient.invalidateQueries({ queryKey: ['users', 'dashboard'] })
     } catch (error) {
@@ -78,23 +84,36 @@ export function TrocarSenhaDialog({ user, onClose }: Props) {
         </DialogHeader>
 
         {saved ? (
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded-input border border-content-border bg-content-bg px-3 py-2 font-mono text-sm">
+          <div className="space-y-3">
+            <code className="block rounded-input border border-content-border bg-content-bg px-3 py-2 font-mono text-sm">
               {saved}
             </code>
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              className="w-full"
               onClick={() => {
-                void navigator.clipboard?.writeText(saved)
+                const message = user?.email
+                  ? buildAccessMessage({
+                      fullName: user.fullName,
+                      email: user.email,
+                      password: saved,
+                      appUrl: window.location.origin,
+                    })
+                  : saved
+                void navigator.clipboard?.writeText(message)
                 setCopied(true)
                 setTimeout(() => setCopied(false), 1500)
               }}
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? 'Copiado!' : 'Copiar acesso (link, usuário e senha)'}
             </Button>
           </div>
+        ) : SHARED_PASSWORD_MODE ? (
+          <p className="rounded-input border border-content-border bg-content-bg px-3 py-2 text-sm text-ink-secondary">
+            A senha provisória única será aplicada e exibida ao confirmar.
+          </p>
         ) : (
           <div className="space-y-1.5">
             <Label htmlFor="new-user-password">Nova senha</Label>

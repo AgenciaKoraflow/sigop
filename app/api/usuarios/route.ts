@@ -11,6 +11,7 @@ import {
   type ExistingAccount,
 } from '@/lib/usuarios/errors'
 import { nullIfEmpty, userCreateSchema } from '@/lib/usuarios/form'
+import { getSharedProvisionalPassword } from '@/lib/usuarios/shared-password'
 import { buildProvisionedUserAttributes, generateProvisionToken, sha256Hex } from '@/lib/usuarios/provision'
 
 /** POST /api/usuarios — create a login user with a provisional password. */
@@ -26,7 +27,9 @@ export async function POST(request: Request) {
       { status: 400 },
     )
   }
-  const { email, password, full_name, role, badge_number, unit_id } = parsed.data
+  const { email, full_name, role, badge_number, unit_id } = parsed.data
+  // Shared-password mode (no e-mail delivery yet) overrides whatever the form sent.
+  const password = getSharedProvisionalPassword() ?? parsed.data.password
 
   let admin
   try {
@@ -126,5 +129,9 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.json({ id: data.user.id }, { status: 201 })
+  // The plaintext provisional password is shown once: keep it out of every cache.
+  return NextResponse.json(
+    { id: data.user.id, password },
+    { status: 201, headers: { 'Cache-Control': 'no-store, max-age=0' } },
+  )
 }

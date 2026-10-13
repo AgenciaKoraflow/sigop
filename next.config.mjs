@@ -18,6 +18,10 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
+  env: {
+    // Boolean only — the shared provisional password itself stays server-side.
+    NEXT_PUBLIC_SHARED_PASSWORD_MODE: process.env.SHARED_PROVISIONAL_PASSWORD?.trim() ? "1" : "",
+  },
   images: {
     remotePatterns: [
       {

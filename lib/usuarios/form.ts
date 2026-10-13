@@ -6,6 +6,29 @@ import { assignedPasswordSchema, generateProvisionalPassword } from '@/lib/auth/
 export { generateProvisionalPassword }
 
 /**
+ * Ready-to-send access message (shown by the "copy" buttons after creating a
+ * user or resetting a password). `appUrl` is the app origin the admin is on.
+ */
+export function buildAccessMessage(params: {
+  fullName?: string | null
+  email: string
+  password: string
+  appUrl: string
+}): string {
+  const firstName = params.fullName?.trim().split(/\s+/)[0]
+  const title = firstName ? `ACESSO ${firstName.toLocaleUpperCase('pt-BR')}` : 'ACESSO'
+  return [
+    title,
+    '',
+    `Link:  ${params.appUrl}`,
+    `Usuário:  ${params.email}`,
+    `Senha provisória: ${params.password}`,
+    '',
+    'Obs:  Você deverá trocar a senha no primeiro acesso.',
+  ].join('\n')
+}
+
+/**
  * Shared schema, constants and helpers for the user-management form
  * (`components/usuarios/FormUsuario.tsx`).
  *

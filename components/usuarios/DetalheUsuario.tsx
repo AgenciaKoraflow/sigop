@@ -284,7 +284,7 @@ export function DetalheUsuario({
       </Dialog>
 
       <TrocarSenhaDialog
-        user={changingPassword ? { id, fullName: detail.fullName } : null}
+        user={changingPassword ? { id, fullName: detail.fullName, email: detail.email } : null}
         onClose={() => setChangingPassword(false)}
       />
     </div>

@@ -169,7 +169,8 @@ export interface CreateUserInput {
   unit_id?: string | null
 }
 
-export function createUser(input: CreateUserInput): Promise<{ id: string }> {
+/** `password` is the one actually applied (the server may override it). */
+export function createUser(input: CreateUserInput): Promise<{ id: string; password: string }> {
   return callApi('/api/usuarios', { method: 'POST', body: JSON.stringify(input) })
 }
 
