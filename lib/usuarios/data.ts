@@ -155,9 +155,25 @@ async function callApi<T>(url: string, init: RequestInit): Promise<T> {
   })
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
   if (!res.ok) {
-    throw new Error((body.error as string) || 'Não foi possível concluir a operação.')
+    throw new ApiError(
+      (body.error as string) || 'Não foi possível concluir a operação.',
+      typeof body.code === 'string' ? body.code : undefined,
+      typeof body.userId === 'string' ? body.userId : undefined,
+    )
   }
   return body as T
+}
+
+/** API failure; `code`/`userId` let the UI explain conflicts (e.g. e-mail taken). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly code?: string,
+    readonly userId?: string,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
 }
 
 export interface CreateUserInput {

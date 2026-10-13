@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Controller,
@@ -15,6 +16,7 @@ import { Check, Copy, Loader2, RefreshCw, Save } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useToast } from '@/hooks/use-toast'
 import {
+  ApiError,
   createUser,
   listUnits,
   updateUser,
@@ -94,6 +96,11 @@ function CreateForm({
     email: string
     password: string
   } | null>(null)
+  // Persistent inline notice (toasts vanish): e-mail/badge conflicts, etc.
+  const [submitError, setSubmitError] = React.useState<{
+    message: string
+    existingUserId?: string
+  } | null>(null)
 
   const form = useForm<UserCreateValues>({
     resolver: zodResolver(userCreateSchema),
@@ -109,6 +116,7 @@ function CreateForm({
   const onSubmit = handleSubmit(
     async (values) => {
       setSubmitting(true)
+      setSubmitError(null)
       try {
         const { id, password } = await createUser({
           full_name: values.full_name,
@@ -125,9 +133,14 @@ function CreateForm({
           password: password ?? values.password,
         })
       } catch (error) {
+        const message = error instanceof Error ? error.message : 'Tente novamente.'
+        setSubmitError({
+          message,
+          existingUserId: error instanceof ApiError ? error.userId : undefined,
+        })
         toast({
           title: 'Não foi possível criar o usuário',
-          description: error instanceof Error ? error.message : 'Tente novamente.',
+          description: message,
           variant: 'destructive',
         })
       } finally {
@@ -152,6 +165,24 @@ function CreateForm({
           O usuário entra com o e-mail e a senha provisória abaixo e será obrigado a criar uma nova senha no primeiro acesso.
         </p>
       </header>
+
+      {submitError && (
+        <div
+          role="alert"
+          className="space-y-1 rounded-input border border-danger bg-content-bg px-4 py-3 text-sm"
+        >
+          <p className="font-semibold text-danger">Não foi possível criar o usuário</p>
+          <p className="text-ink">{submitError.message}</p>
+          {submitError.existingUserId && (
+            <Link
+              href={`/usuarios/${submitError.existingUserId}`}
+              className="inline-block font-medium text-ink underline"
+            >
+              Abrir o cadastro existente
+            </Link>
+          )}
+        </div>
+      )}
 
       <section className="space-y-4">
         <SectionTitle index={1}>Identificação</SectionTitle>

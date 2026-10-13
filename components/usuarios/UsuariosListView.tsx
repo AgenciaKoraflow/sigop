@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Loader2, MoreHorizontal, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react'
+import { KeyRound, Loader2, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { useToast } from '@/hooks/use-toast'
@@ -29,11 +29,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Input,
   Select,
   SelectContent,
@@ -201,10 +196,8 @@ export function UsuariosListView() {
               <TableHead className="text-xs">Nome</TableHead>
               <TableHead className="text-xs">E-mail</TableHead>
               <TableHead className="text-xs">Papel</TableHead>
-              <TableHead className="text-xs">Unidade</TableHead>
-              <TableHead className="text-xs">Matrícula</TableHead>
               <TableHead className="text-xs">Status</TableHead>
-              <TableHead className="w-12 text-xs">
+              <TableHead className="w-32 text-xs">
                 <span className="sr-only">Ações</span>
               </TableHead>
             </TableRow>
@@ -213,7 +206,7 @@ export function UsuariosListView() {
             {isLoading ? (
               Array.from({ length: 8 }).map((_, index) => (
                 <TableRow key={index} className="hover:bg-transparent">
-                  {Array.from({ length: 7 }).map((__, cell) => (
+                  {Array.from({ length: 5 }).map((__, cell) => (
                     <TableCell key={cell}>
                       <Skeleton className="h-4 w-full max-w-[140px]" />
                     </TableCell>
@@ -222,7 +215,7 @@ export function UsuariosListView() {
               ))
             ) : items.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={7} className="py-16 text-center text-sm text-ink-secondary">
+                <TableCell colSpan={5} className="py-16 text-center text-sm text-ink-secondary">
                   Nenhum usuário encontrado.
                 </TableCell>
               </TableRow>
@@ -246,58 +239,53 @@ export function UsuariosListView() {
                   <TableCell>
                     <Badge variant="secondary">{roleOptionLabel(user.role)}</Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-ink-secondary">
-                    {user.unitName ?? '—'}
+                  <TableCell onClick={(event) => event.stopPropagation()}>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={user.isActive}
+                        disabled={user.id === currentUser?.id}
+                        onCheckedChange={() => setToggleTarget(user)}
+                        aria-label={`${user.isActive ? 'Inativar' : 'Ativar'} ${user.fullName}`}
+                      />
+                      <span className="text-xs text-ink-secondary">
+                        {user.isActive ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-sm text-ink-secondary">
-                    {user.badgeNumber ?? '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={user.isActive ? 'synced' : 'error'}>
-                      {user.isActive ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          aria-label={`Ações para ${user.fullName}`}
-                        >
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => router.push(`/usuarios/${user.id}?editar=1`)}
-                        >
-                          <Pencil />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setPasswordTarget(user)}>
-                          <KeyRound />
-                          Trocar senha
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={user.id === currentUser?.id}
-                          onSelect={() => setToggleTarget(user)}
-                        >
-                          <Power />
-                          {user.isActive ? 'Inativar' : 'Ativar'}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          disabled={user.id === currentUser?.id}
-                          onSelect={() => setDeleteTarget(user)}
-                          className="text-danger focus:text-danger"
-                        >
-                          <Trash2 />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <TableCell onClick={(event) => event.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Editar"
+                        aria-label={`Editar ${user.fullName}`}
+                        onClick={() => router.push(`/usuarios/${user.id}?editar=1`)}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Trocar senha"
+                        aria-label={`Trocar senha de ${user.fullName}`}
+                        onClick={() => setPasswordTarget(user)}
+                      >
+                        <KeyRound />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-danger hover:text-danger"
+                        title="Excluir"
+                        aria-label={`Excluir ${user.fullName}`}
+                        disabled={user.id === currentUser?.id}
+                        onClick={() => setDeleteTarget(user)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

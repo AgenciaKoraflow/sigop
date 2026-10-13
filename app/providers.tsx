@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { SESSION_PROFILE_KEY } from '@/hooks/use-session-profile'
+import { Toaster } from '@/components/ui'
 
 /**
  * App-wide client providers. Currently just TanStack Query, mounted once so the
@@ -44,5 +45,10 @@ export function Providers({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [client])
 
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={client}>
+      {children}
+      <Toaster />
+    </QueryClientProvider>
+  )
 }
