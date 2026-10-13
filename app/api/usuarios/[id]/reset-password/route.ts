@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { adminUnavailable, invalidId, serverError } from '@/lib/api/errors'
+import { adminUnavailable, invalidId } from '@/lib/api/errors'
+import { describeAuthError } from '@/lib/usuarios/errors'
 import { isUuid } from '@/lib/api/request-guards'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
@@ -48,7 +49,9 @@ export async function POST(
     app_metadata: { [MUST_CHANGE_PASSWORD_FLAG]: true },
   })
   if (error) {
-    return serverError('reset-password', error, 400)
+    console.error('[api] reset-password:', error.message)
+    const failure = describeAuthError(error, 'Não foi possível trocar a senha.')
+    return NextResponse.json({ error: failure.error, code: failure.code }, { status: failure.status })
   }
 
   // Old sessions must not survive a password change.

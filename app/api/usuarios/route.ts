@@ -4,6 +4,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { MUST_CHANGE_PASSWORD_FLAG } from '@/lib/auth/password'
 import { requireAdmin } from '@/lib/usuarios/guard'
+import {
+  describeAuthError,
+  describeBadgeTaken,
+  describeEmailTaken,
+  type ExistingAccount,
+} from '@/lib/usuarios/errors'
 import { nullIfEmpty, userCreateSchema } from '@/lib/usuarios/form'
 import { buildProvisionedUserAttributes, generateProvisionToken, sha256Hex } from '@/lib/usuarios/provision'
 
@@ -29,9 +35,36 @@ export async function POST(request: Request) {
     return adminUnavailable(err)
   }
 
+  const db = admin as unknown as SupabaseClient
+
+  // Fail early, and say who holds the e-mail / badge, instead of letting Auth or
+  // the unique index reject a half-created user.
+  const { data: owner } = await db
+    .from('profiles')
+    .select('id, full_name, is_active, deleted_at')
+    .eq('email', email.toLowerCase())
+    .maybeSingle<ExistingAccount>()
+  if (owner) {
+    const { error, status, code } = describeEmailTaken(owner)
+    return NextResponse.json({ error, code, userId: owner.id }, { status })
+  }
+
+  const badge = nullIfEmpty(badge_number)
+  if (badge) {
+    const { data: holder } = await db
+      .from('profiles')
+      .select('full_name')
+      .eq('badge_number', badge)
+      .is('deleted_at', null)
+      .maybeSingle<{ full_name: string | null }>()
+    if (holder) {
+      const { error, status, code } = describeBadgeTaken(badge, holder)
+      return NextResponse.json({ error, code }, { status })
+    }
+  }
+
   // The database refuses any auth.users insert without a single-use ticket
   // (sql/026), and takes the profile role from the ticket — never from metadata.
-  const db = admin as unknown as SupabaseClient
   const token = generateProvisionToken()
   const tokenHash = `\\x${await sha256Hex(token)}`
   const { error: ticketError } = await db.from('user_provisioning_tickets').insert({
@@ -61,22 +94,9 @@ export async function POST(request: Request) {
 
   if (error || !data.user) {
     await db.from('user_provisioning_tickets').delete().eq('token_hash', tokenHash)
-    const duplicate =
-      error?.code === 'email_exists' ||
-      /already been registered|already exists/i.test(error?.message ?? '')
-    // "Database error creating new user" = the `handle_new_user` trigger on
-    // auth.users raised (see sql/014_handle_new_user_fix.sql).
-    const triggerFailure = /database error/i.test(error?.message ?? '')
     if (error) console.error('[usuarios] createUser failed:', error.message)
-    const message = duplicate
-      ? 'Já existe um usuário com esse e-mail.'
-      : triggerFailure
-        ? 'O banco recusou a criação do perfil do usuário (trigger handle_new_user). Avise o suporte técnico.'
-        : 'Falha ao criar o usuário.'
-    return NextResponse.json(
-      { error: message },
-      { status: duplicate ? 409 : triggerFailure ? 500 : 400 },
-    )
+    const failure = describeAuthError(error, 'Falha ao criar o usuário.')
+    return NextResponse.json({ error: failure.error, code: failure.code }, { status: failure.status })
   }
 
   // GoTrue rewrites the row after the insert, which re-persists the (already
@@ -93,7 +113,7 @@ export async function POST(request: Request) {
     .update({
       full_name,
       role,
-      badge_number: nullIfEmpty(badge_number),
+      badge_number: badge,
       unit_id: nullIfEmpty(unit_id),
     })
     .eq('id', data.user.id)

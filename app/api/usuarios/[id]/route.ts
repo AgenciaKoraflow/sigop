@@ -4,6 +4,7 @@ import { isUuid } from '@/lib/api/request-guards'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/usuarios/guard'
+import { describeBadgeTaken } from '@/lib/usuarios/errors'
 import { userEditSchema, nullIfEmpty } from '@/lib/usuarios/form'
 import { LAST_ADMIN_MESSAGE, isLastAdminViolation } from '@/lib/usuarios/last-admin'
 
@@ -80,11 +81,21 @@ export async function PATCH(
     if (isLastAdminViolation(error)) {
       return NextResponse.json({ error: LAST_ADMIN_MESSAGE }, { status: 409 })
     }
-    const duplicate = /duplicate key|unique/i.test(error.message)
-    return NextResponse.json(
-      { error: duplicate ? 'Esse número de matrícula já está em uso.' : 'Não foi possível atualizar o usuário.' },
-      { status: duplicate ? 409 : 400 },
-    )
+    if (/duplicate key|unique/i.test(error.message)) {
+      const badge = typeof patch.badge_number === 'string' ? patch.badge_number : null
+      const { data: holder } = badge
+        ? await db
+            .from('profiles')
+            .select('full_name')
+            .eq('badge_number', badge)
+            .neq('id', params.id)
+            .is('deleted_at', null)
+            .maybeSingle<{ full_name: string | null }>()
+        : { data: null }
+      const { error: message, status, code } = describeBadgeTaken(badge ?? '', holder)
+      return NextResponse.json({ error: message, code }, { status })
+    }
+    return NextResponse.json({ error: 'Não foi possível atualizar o usuário.' }, { status: 400 })
   }
   if (!updated || updated.length === 0) {
     return NextResponse.json({ error: 'Usuário não encontrado.' }, { status: 404 })
