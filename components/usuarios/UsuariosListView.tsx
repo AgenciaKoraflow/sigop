@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { Download, KeyRound, Loader2, MoreHorizontal, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react'
+import { KeyRound, Loader2, MoreHorizontal, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils/cn'
 import { useToast } from '@/hooks/use-toast'
@@ -20,7 +20,6 @@ import {
 import { USER_ROLE_OPTIONS, roleOptionLabel } from '@/lib/usuarios/form'
 import type { UserRole } from '@/types/app.types'
 import { TrocarSenhaDialog } from '@/components/usuarios/TrocarSenhaDialog'
-import { ExportarAcessosDialog } from '@/components/usuarios/ExportarAcessosDialog'
 import {
   Badge,
   Button,
@@ -86,7 +85,6 @@ export function UsuariosListView() {
   const { toast } = useToast()
   const { user: currentUser } = useCurrentUser()
   const [busy, setBusy] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
   const [passwordTarget, setPasswordTarget] = useState<UserListItem | null>(null)
   const [toggleTarget, setToggleTarget] = useState<UserListItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<UserListItem | null>(null)
@@ -135,23 +133,12 @@ export function UsuariosListView() {
         <h1 className="text-2xl font-bold text-ink">
           Usuários <span className="font-semibold text-ink-muted">({total})</span>
         </h1>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full justify-center sm:w-auto"
-            onClick={() => setExportOpen(true)}
-          >
-            <Download />
-            Exportar acessos
-          </Button>
-          <Button asChild variant="primary" size="lg" className="w-full justify-center sm:w-auto">
-            <Link href="/usuarios/novo">
-              <Plus />
-              Novo usuário
-            </Link>
-          </Button>
-        </div>
+        <Button asChild variant="primary" size="lg" className="w-full justify-center sm:w-auto">
+          <Link href="/usuarios/novo">
+            <Plus />
+            Novo usuário
+          </Link>
+        </Button>
       </header>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -347,7 +334,6 @@ export function UsuariosListView() {
       )}
 
       <TrocarSenhaDialog user={passwordTarget} onClose={() => setPasswordTarget(null)} />
-      <ExportarAcessosDialog open={exportOpen} onClose={() => setExportOpen(false)} />
 
       {/* Toggle confirmation */}
       <Dialog

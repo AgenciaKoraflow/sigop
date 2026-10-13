@@ -4,7 +4,6 @@ import { isUuid } from '@/lib/api/request-guards'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/usuarios/guard'
-import { clearProvisionalPassword } from '@/lib/usuarios/credentials-store'
 import { describeBadgeTaken } from '@/lib/usuarios/errors'
 import { userEditSchema, nullIfEmpty } from '@/lib/usuarios/form'
 import { LAST_ADMIN_MESSAGE, isLastAdminViolation } from '@/lib/usuarios/last-admin'
@@ -194,9 +193,6 @@ export async function DELETE(
 
   // Soft delete anonymises the login; make sure no session/refresh token lives on.
   await revokeUserSessions(admin, params.id)
-
-  // The auth row is only anonymised (no FK cascade): drop the stored credential.
-  await clearProvisionalPassword(db, params.id)
 
   // Free the unique identifiers so they can be reused by a new user.
   await db

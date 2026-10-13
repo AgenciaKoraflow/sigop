@@ -6,7 +6,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
 import { MUST_CHANGE_PASSWORD_FLAG } from '@/lib/auth/password'
 import { requireAdmin } from '@/lib/usuarios/guard'
-import { saveProvisionalPassword } from '@/lib/usuarios/credentials-store'
 import {
   PASSWORD_AUDIT_ENTITY,
   generateProvisionalPassword,
@@ -64,10 +63,6 @@ export async function POST(
       { status: 500 },
     )
   }
-
-  // The new password is provisional again (must change on next login): keep it
-  // encrypted for the bulk access export until the user replaces it.
-  await saveProvisionalPassword(admin as unknown as SupabaseClient, params.id, password, gate.userId)
 
   // Best effort — feeds the "trocas de senha" counter on the users dashboard.
   await (admin as unknown as SupabaseClient).from('audit_log').insert({

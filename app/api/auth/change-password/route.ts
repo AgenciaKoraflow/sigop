@@ -1,5 +1,4 @@
-import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
-import { clearProvisionalPassword } from '@/lib/usuarios/credentials-store'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getDb, isSameOrigin, jsonNoStore, tooManyRequests } from '@/lib/auth/reset'
@@ -68,9 +67,6 @@ export async function POST(request: Request) {
     app_metadata: { [MUST_CHANGE_PASSWORD_FLAG]: false },
   })
   if (error) return jsonNoStore({ error: 'Não foi possível trocar a senha.' }, 400)
-
-  // The provisional password is no longer valid: drop its encrypted copy.
-  await clearProvisionalPassword(admin as unknown as SupabaseClient, user.id)
 
   // Every other device/session (possibly a stolen one) dies; the caller's own
   // session stays so the legitimate flow is not interrupted.
