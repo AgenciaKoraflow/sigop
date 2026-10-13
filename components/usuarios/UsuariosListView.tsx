@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  Switch,
   Table,
   TableBody,
   TableCell,
