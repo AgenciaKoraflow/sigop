@@ -1,4 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, revokeUserSessions } from '@/lib/supabase/admin'
+import { clearProvisionalPassword } from '@/lib/usuarios/credentials-store'
 import {
   GENERIC_INVALID,
   bindingHash,
@@ -97,6 +99,9 @@ export async function POST(request: Request) {
       400,
     )
   }
+
+  // A permanent password now exists: drop the encrypted provisional copy.
+  await clearProvisionalPassword(admin as unknown as SupabaseClient, userId)
 
   // Whoever held the old password (or a stolen session) is signed out.
   await revokeUserSessions(admin, userId)

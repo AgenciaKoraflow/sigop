@@ -12,6 +12,7 @@ import {
 } from '@/lib/usuarios/errors'
 import { nullIfEmpty, userCreateSchema } from '@/lib/usuarios/form'
 import { buildProvisionedUserAttributes, generateProvisionToken, sha256Hex } from '@/lib/usuarios/provision'
+import { saveProvisionalPassword } from '@/lib/usuarios/credentials-store'
 
 /** POST /api/usuarios — create a login user with a provisional password. */
 export async function POST(request: Request) {
@@ -98,6 +99,10 @@ export async function POST(request: Request) {
     const failure = describeAuthError(error, 'Falha ao criar o usuário.')
     return NextResponse.json({ error: failure.error, code: failure.code }, { status: failure.status })
   }
+
+  // Kept (encrypted) until the user sets a permanent password: feeds the bulk
+  // access export. Best effort — never blocks the creation.
+  await saveProvisionalPassword(db, data.user.id, password, gate.userId)
 
   // GoTrue rewrites the row after the insert, which re-persists the (already
   // consumed, so harmless) token the trigger had stripped. Drop it for hygiene.
