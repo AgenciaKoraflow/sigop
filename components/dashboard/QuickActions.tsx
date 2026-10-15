@@ -23,7 +23,12 @@ export function QuickActions() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="primary" size="lg" className="w-full justify-center sm:w-auto">
+        <Button
+          variant="primary"
+          size="lg"
+          data-tour="new-record"
+          className="w-full justify-center sm:w-auto"
+        >
           <Plus />
           Abrir novo registro
           <ChevronDown className="opacity-80" />

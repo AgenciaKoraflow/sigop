@@ -6,9 +6,12 @@ import { QuickActions } from '@/components/dashboard/QuickActions'
 import { RecentActivity } from '@/components/dashboard/RecentActivity'
 import { DemoBanner } from '@/components/dashboard/DashboardBanners'
 import { Card } from '@/components/ui/card'
+import { useAutoStartTour } from '@/components/tour/TourProvider'
+import { HOME_TOUR } from '@/lib/tour/definitions'
 
 export default function DashboardPage() {
   const { data, isLoading, isError } = useDashboardData()
+  useAutoStartTour(HOME_TOUR)
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">

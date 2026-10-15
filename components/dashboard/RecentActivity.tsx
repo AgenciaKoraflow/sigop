@@ -101,7 +101,10 @@ export function RecentActivity({
   }, [items, range])
 
   return (
-    <section className="rounded-card border border-content-border bg-content-surface shadow-card">
+    <section
+      data-tour="recent-activity"
+      className="rounded-card border border-content-border bg-content-surface shadow-card"
+    >
       <header className="flex flex-col gap-3 border-b border-content-border p-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-[15px] font-semibold text-ink">Atividade recente</h2>
         <div className="flex gap-1 rounded-input bg-content-bg p-1">

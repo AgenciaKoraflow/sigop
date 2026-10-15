@@ -49,7 +49,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-2">
+      <nav data-tour="sidebar-nav" className="flex-1 overflow-y-auto px-3 py-2">
         <p className="px-3 pb-2 pt-3 text-nav-section uppercase text-sidebar-muted">
           Navegação
         </p>
